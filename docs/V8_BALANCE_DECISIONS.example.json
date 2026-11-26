@@ -1,0 +1,21 @@
+{
+  "_instrucciones": "Copiar a V8_BALANCE_DECISIONS.json y rellenar. NO poner secretos. La ruta de backup debe ser una COPIA, nunca la BD real del POS.",
+  "backup": {
+    "copy_path": "C:\\Users\\agust\\AppData\\Local\\Temp\\opencode\\database-copy.sqlite",
+    "sha256": "",
+    "integrity_check": "ok"
+  },
+  "restaurant_id": "",
+  "cloud_restaurant_id": "",
+  "products": [
+    {
+      "product_key": "",
+      "name": "",
+      "local_stock": "",
+      "remote_stock": "",
+      "decided_initial_stock": "",
+      "decision": "local|remote|manual",
+      "reason": ""
+    }
+  ]
+}
