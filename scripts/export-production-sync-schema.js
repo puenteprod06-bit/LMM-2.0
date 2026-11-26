@@ -29,8 +29,24 @@ function guard() {
   if (!process.env.DATABASE_URL) {
     throw new Error('falta DATABASE_URL en .env.production-readonly');
   }
-  if (/\/\[YOUR-|<PASSWORD|TU_PASSWORD/i.test(process.env.DATABASE_URL)) {
+  if (/\/\[YOUR-|<PASSWORD|TU_PASSWORD|USUARIO_SOLO_LECTURA|TU-PROYECTO/i.test(process.env.DATABASE_URL)) {
     throw new Error('DATABASE_URL parece ser una plantilla; rellénala en .env.production-readonly');
+  }
+  // Evita exportar un proyecto distinto al declarado en SUPABASE_URL.
+  // Acepta conexión directa (db.<ref>.supabase.co) y pooler
+  // (aws-0-<region>.pooler.supabase.com con usuario postgres.<ref>).
+  if (process.env.SUPABASE_URL) {
+    let dbRef, apiRef, dbUrl, apiUrl;
+    try {
+      dbUrl = new URL(process.env.DATABASE_URL);
+      apiUrl = new URL(process.env.SUPABASE_URL);
+      dbRef = dbUrl.hostname.match(/^db\.([a-z0-9]+)\.supabase\.co$/i)?.[1] ||
+              decodeURIComponent(dbUrl.username).match(/^postgres\.([a-z0-9]+)$/i)?.[1];
+      apiRef = apiUrl.hostname.match(/^([a-z0-9]+)\.supabase\.co$/i)?.[1];
+    } catch (_) { /* se reporta abajo */ }
+    if (!dbRef || !apiRef || dbRef !== apiRef) {
+      throw new Error('DATABASE_URL y SUPABASE_URL apuntan a proyectos distintos; abortando');
+    }
   }
 }
 
