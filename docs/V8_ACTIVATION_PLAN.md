@@ -88,7 +88,13 @@ de la cola no cambie. Evidencia: `docs/V8_G1_G2_REHEARSAL_RESULT.json`.
 
 ### G3 — Staging
 
-1. Aplicar la migración SQL al proyecto Supabase de staging.
+0. **Esquema SQL aplicado al staging desechable** (`vzwpbviq…`) el 2026-11-26
+   con `node scripts/validate-v8-supabase.js apply --confirm-isolated
+   --reset-throwaway --out docs/V8_STAGING_SCHEMA_RESULT.json`. Resultado: **15
+   tablas, 31 funciones, 15 tablas con RLS**, sin datos reales. El reset solo
+   eliminó el esquema sintético creado por el validador; la evidencia original
+   6/6 se conserva en `docs/V8_SUPABASE_ISOLATED_RESULT.json`.
+1. Verificar que la app apunte a ese staging y no al destino productivo.
 2. Arrancar la app sobre una **copia** de SQLite con
    `LMM_INVENTORY_SYNC_V8=1`, `cloud_restaurant_id`, `supabase_url` y
    `supabase_anon_key` apuntando a staging.

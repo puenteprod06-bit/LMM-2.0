@@ -225,6 +225,13 @@ async function smoke() {
 
 async function main() {
   assertGuard();
+  const outIdx = process.argv.indexOf('--out');
+  const resultFile = outIdx >= 0
+    ? path.resolve(process.cwd(), process.argv[outIdx + 1] || '')
+    : RESULT_FILE;
+  if (outIdx >= 0 && (!process.argv[outIdx + 1] || process.argv[outIdx + 1].startsWith('--'))) {
+    throw new Error('falta valor para --out <archivo.json>');
+  }
   const arg = process.argv[2];
   const cmd = arg && !arg.startsWith('--') ? arg : 'all';
   const startedAt = new Date().toISOString();
@@ -251,9 +258,9 @@ async function main() {
     passed: output.checks.filter((c) => c.ok).length,
     failed: output.checks.filter((c) => !c.ok).length,
   };
-  fs.mkdirSync(path.dirname(RESULT_FILE), { recursive: true });
-  fs.writeFileSync(RESULT_FILE, JSON.stringify(output, null, 2));
-  console.log('\nResultado guardado en ' + path.relative(ROOT, RESULT_FILE));
+  fs.mkdirSync(path.dirname(resultFile), { recursive: true });
+  fs.writeFileSync(resultFile, JSON.stringify(output, null, 2));
+  console.log('\nResultado guardado en ' + path.relative(ROOT, resultFile));
   if (output.summary.failed) process.exitCode = 1;
 }
 
