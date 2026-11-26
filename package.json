@@ -22,6 +22,7 @@
     "validate:v8-concurrency": "node scripts/validate-v8-supabase-concurrency.js",
     "export:v8-sync-schema": "node scripts/export-production-sync-schema.js",
     "verify:v8-inputs": "node scripts/verify-v8-migration-inputs.js",
+    "build:v8-input": "node scripts/build-v8-migration-input.js",
     "test:watch": "node scripts/run-tests.js --testPathPattern=tests/ --watch",
     "test:coverage": "node scripts/run-tests.js --testPathPattern=tests/ --coverage --forceExit",
     "release": "npm run rebuild && npm run minify && electron-builder --win --x64 --publish always",

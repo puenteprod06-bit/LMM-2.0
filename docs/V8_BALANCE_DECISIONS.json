@@ -1,0 +1,121 @@
+{
+  "_instrucciones": "BORRADOR generado desde una copia verificada. Revisar y confirmar. NO contiene secretos. Poner owner_confirmed=true SOLO cuando el propietario acepte todos los decided_initial_stock.",
+  "backup": {
+    "copy_path": "C:\\Users\\agust\\OneDrive\\Desktop\\PROYECTOS\\La_Mente_Maestra_reparado\\mente-maestra-reparado\\backups\\g1-20261126\\database.sqlite",
+    "sha256": "aebd7dd3bc61ca92b34310c4cc8214019ebe331520d5a1823be8c4906ba69459",
+    "integrity_check": "ok"
+  },
+  "_origen": {
+    "generated_at": "2026-11-26T05:20:00Z",
+    "local_stock_unidad": "valor legacy de inventory.stock (ya es numérico; el motor lo convierte a milli)",
+    "remote_source": "sin tablas sync_* en el destino (G0: 0 tablas)",
+    "config_detectada": {
+      "restaurant_name": "LMM",
+      "cloud_restaurant_id_actual": "27990c98-a96f-46eb-957d-99f762a2f2fa",
+      "supabase_url_actual": "https://vzwpbviqgzebehavoori.supabase.co",
+      "aviso": "La SQLite apunta al proyecto desechable. Antes de G3/G4 debe apuntar al proyecto productivo indicado y al cloud_restaurant_id correcto."
+    },
+    "sync_queue_legacy": {
+      "total_filas": 794,
+      "inventory_pendientes": 130,
+      "otras_tablas_pendientes": 658,
+      "ya_sincronizadas": 6,
+      "accion": "cuarentena sin borrado (v8-migrate-local.js apply)"
+    }
+  },
+  "owner_confirmed": false,
+  "restaurant_id": "",
+  "cloud_restaurant_id": "",
+  "products": [
+    {
+      "product_key": "f77dfd6f-4f0a-4d5f-be42-c90e806bca9d",
+      "name": "Carne picada",
+      "local_stock": 0,
+      "remote_stock": "",
+      "decided_initial_stock": 0,
+      "decision": "local",
+      "reason": "PROPUESTA (no confirmada): sin saldo remoto heredado; conservar 0 del POS"
+    },
+    {
+      "product_key": "7ce3c850-4fde-4945-bb48-970b41bcf03f",
+      "name": "Pan brioche",
+      "local_stock": 0,
+      "remote_stock": "",
+      "decided_initial_stock": 0,
+      "decision": "local",
+      "reason": "PROPUESTA (no confirmada): sin saldo remoto heredado; conservar 0 del POS"
+    },
+    {
+      "product_key": "00418986-2e11-4ae5-a1f8-cf8f9b9ab3f0",
+      "name": "Queso cheddar",
+      "local_stock": 0,
+      "remote_stock": "",
+      "decided_initial_stock": 0,
+      "decision": "local",
+      "reason": "PROPUESTA (no confirmada): sin saldo remoto heredado; conservar 0 del POS"
+    },
+    {
+      "product_key": "b4f8b819-b184-40de-848a-7e77779ace6a",
+      "name": "Cerveza Quilmes 1L",
+      "local_stock": 33,
+      "remote_stock": "",
+      "decided_initial_stock": 33,
+      "decision": "local",
+      "reason": "PROPUESTA (no confirmada): sin saldo remoto heredado; conservar 33 del POS"
+    },
+    {
+      "product_key": "b99c0572-6277-4d0a-8e06-693460ee9159",
+      "name": "Cerveza Stella 1L",
+      "local_stock": 16,
+      "remote_stock": "",
+      "decided_initial_stock": 16,
+      "decision": "local",
+      "reason": "PROPUESTA (no confirmada): sin saldo remoto heredado; conservar 16 del POS"
+    },
+    {
+      "product_key": "7aa81a2f-e852-47f1-8d50-2ed81999049e",
+      "name": "Coca Cola 500ml",
+      "local_stock": 55,
+      "remote_stock": "",
+      "decided_initial_stock": 55,
+      "decision": "local",
+      "reason": "PROPUESTA (no confirmada): sin saldo remoto heredado; conservar 55 del POS"
+    },
+    {
+      "product_key": "4b68dcdc-52f0-4974-9877-ad15b2634cba",
+      "name": "Agua mineral 500ml",
+      "local_stock": 40,
+      "remote_stock": "",
+      "decided_initial_stock": 40,
+      "decision": "local",
+      "reason": "PROPUESTA (no confirmada): sin saldo remoto heredado; conservar 40 del POS"
+    },
+    {
+      "product_key": "9b6b10a8-4c9e-403e-9edd-489a60f41d7b",
+      "name": "Papas",
+      "local_stock": 12600,
+      "remote_stock": "",
+      "decided_initial_stock": 12600,
+      "decision": "local",
+      "reason": "PROPUESTA (no confirmada): sin saldo remoto heredado; conservar 12600 del POS (unidad legacy, probablemente gramos)"
+    },
+    {
+      "product_key": "a1dfbd46-d7c6-4df7-945b-41b1931ea8b1",
+      "name": "Fideos spaghetti",
+      "local_stock": 2600,
+      "remote_stock": "",
+      "decided_initial_stock": 2600,
+      "decision": "local",
+      "reason": "PROPUESTA (no confirmada): sin saldo remoto heredado; conservar 2600 del POS (unidad legacy, probablemente gramos)"
+    },
+    {
+      "product_key": "2c1a15b9-7a7a-4e63-8300-c44df26a23c6",
+      "name": "Dulce de leche",
+      "local_stock": 1300,
+      "remote_stock": "",
+      "decided_initial_stock": 1300,
+      "decision": "local",
+      "reason": "PROPUESTA (no confirmada): sin saldo remoto heredado; conservar 1300 del POS (unidad legacy, probablemente gramos)"
+    }
+  ]
+}

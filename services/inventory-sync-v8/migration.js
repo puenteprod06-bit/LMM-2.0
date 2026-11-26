@@ -218,9 +218,28 @@ function apply(db, input = {}) {
   const notes = input.notes || null;
   const started = Date.now();
   let runId;
-  const counts = { products: 0, legacy_movements_marked: 0, queue_quarantined: 0, queue_rows_deleted: 0 };
+  const counts = { products: 0, legacy_movements_marked: 0, queue_quarantined: 0,
+    queue_rows_deleted: 0, queue_total_before: 0, queue_total_after: 0 };
   try {
     begin(db);
+    // Los triggers legacy insertan en sync_queue cada UPDATE de inventory. Si no se
+    // silencian, la migración crearía filas nuevas y luego las pondría en cuarentena.
+    const flagExists = exists(db, '_sync_flag') && hasColumn(db, '_sync_flag', 'applying_remote');
+    const oldFlag = flagExists
+      ? (db.prepare(`SELECT applying_remote FROM _sync_flag WHERE rowid_pk=1`).get() || {}).applying_remote
+      : null;
+    if (flagExists) {
+      db.prepare(`UPDATE _sync_flag SET applying_remote=1 WHERE rowid_pk=1`).run();
+    }
+    const queueTable = exists(db, 'sync_queue');
+    counts.queue_total_before = queueTable
+      ? db.prepare(`SELECT COUNT(*) AS n FROM sync_queue`).get().n : 0;
+    // Snapshot ANTES de escribir: nunca se incluyen filas generadas por la propia migración.
+    const queuedRows = queueTable
+      ? db.prepare(`SELECT id, table_name, row_uuid, operation, created_at, synced
+          FROM sync_queue WHERE table_name='inventory' AND (synced IS NULL OR synced=0)
+            AND id NOT IN (SELECT queue_id FROM v8_migration_queue_quarantine) ORDER BY id`).all()
+      : [];
     runId = Number(db.prepare(`INSERT INTO v8_migration_runs
       (command, status, decisions_json, counts_json, notes, created_at)
       VALUES ('apply','applying',?,?,?,?)`).run(
@@ -247,20 +266,24 @@ function apply(db, input = {}) {
         WHERE confirmation_state IS NULL OR origin IS NULL`).run().changes;
       counts.legacy_movements_marked = marked;
     }
-    if (exists(db, 'sync_queue')) {
-      const rows = db.prepare(`SELECT id, table_name, row_uuid, operation, created_at, synced
-        FROM sync_queue WHERE table_name='inventory' AND (synced IS NULL OR synced=0)
-          AND id NOT IN (SELECT queue_id FROM v8_migration_queue_quarantine) ORDER BY id`).all();
-      for (const q of rows) {
-        db.prepare(`INSERT INTO v8_migration_queue_quarantine
-          (run_id, queue_id, table_name, row_uuid, operation, created_at, old_synced, payload_json)
-          VALUES (?,?,?,?,?,?,?,?)`).run(runId, q.id, q.table_name, q.row_uuid, q.operation,
-            q.created_at, q.synced === null ? null : Number(q.synced), JSON.stringify(q));
-        // Conserva la fila; solo la marca como procesada para que el motor
-        // legacy NO vuelva a enviar un stock absoluto incompatible con V8.
-        db.prepare(`UPDATE sync_queue SET synced=1 WHERE id=?`).run(q.id);
-        counts.queue_quarantined += 1;
-      }
+    for (const q of queuedRows) {
+      db.prepare(`INSERT INTO v8_migration_queue_quarantine
+        (run_id, queue_id, table_name, row_uuid, operation, created_at, old_synced, payload_json)
+        VALUES (?,?,?,?,?,?,?,?)`).run(runId, q.id, q.table_name, q.row_uuid, q.operation,
+          q.created_at, q.synced === null ? null : Number(q.synced), JSON.stringify(q));
+      // Conserva la fila; solo la marca como procesada para que el motor
+      // legacy NO vuelva a enviar un stock absoluto incompatible con V8.
+      db.prepare(`UPDATE sync_queue SET synced=1 WHERE id=?`).run(q.id);
+      counts.queue_quarantined += 1;
+    }
+    counts.queue_total_after = queueTable
+      ? db.prepare(`SELECT COUNT(*) AS n FROM sync_queue`).get().n : 0;
+    if (counts.queue_total_after !== counts.queue_total_before) {
+      throw new Error(`sync_queue cambió durante la migración: ${counts.queue_total_before} -> ${counts.queue_total_after}`);
+    }
+    if (flagExists) {
+      db.prepare(`UPDATE _sync_flag SET applying_remote=? WHERE rowid_pk=1`)
+        .run(oldFlag === undefined ? 0 : oldFlag);
     }
     db.prepare(`UPDATE v8_migration_runs SET status='applied', counts_json=?, finished_at=? WHERE run_id=?`)
       .run(JSON.stringify(counts), Date.now(), runId);
@@ -288,9 +311,20 @@ function rollbackRun(db, input = {}) {
   if (!run) throw new Error(`corrida no encontrada: ${input.runId}`);
   if (run.status !== 'applied') throw new Error(`la corrida ${input.runId} no está en estado applied`);
   const changes = db.prepare(`SELECT * FROM v8_migration_changes WHERE run_id=? ORDER BY change_id DESC`).all(input.runId);
-  const counts = { inventory_columns_restored: 0, queue_rows_restored: 0, quarantine_rows_kept: 0 };
+  const counts = { inventory_columns_restored: 0, queue_rows_restored: 0,
+    quarantine_rows_kept: 0, queue_total_before: 0, queue_total_after: 0 };
   try {
     begin(db);
+    // Igual que en apply: los triggers legacy NO deben crear filas nuevas al revertir.
+    const flagExists = exists(db, '_sync_flag') && hasColumn(db, '_sync_flag', 'applying_remote');
+    const oldFlag = flagExists
+      ? (db.prepare(`SELECT applying_remote FROM _sync_flag WHERE rowid_pk=1`).get() || {}).applying_remote
+      : null;
+    if (flagExists) {
+      db.prepare(`UPDATE _sync_flag SET applying_remote=1 WHERE rowid_pk=1`).run();
+    }
+    counts.queue_total_before = exists(db, 'sync_queue')
+      ? db.prepare(`SELECT COUNT(*) AS n FROM sync_queue`).get().n : 0;
     for (const c of changes) {
       const old = c.old_value === null ? null : JSON.parse(c.old_value);
       db.prepare(`UPDATE ${c.table_name} SET ${c.column_name}=? WHERE id=?`).run(old, c.row_key);
@@ -303,6 +337,15 @@ function rollbackRun(db, input = {}) {
       counts.queue_rows_restored += 1;
     }
     counts.quarantine_rows_kept = db.prepare(`SELECT COUNT(*) AS n FROM v8_migration_queue_quarantine WHERE run_id=?`).get(input.runId).n;
+    counts.queue_total_after = exists(db, 'sync_queue')
+      ? db.prepare(`SELECT COUNT(*) AS n FROM sync_queue`).get().n : 0;
+    if (counts.queue_total_after !== counts.queue_total_before) {
+      throw new Error(`sync_queue cambió durante el rollback: ${counts.queue_total_before} -> ${counts.queue_total_after}`);
+    }
+    if (flagExists) {
+      db.prepare(`UPDATE _sync_flag SET applying_remote=? WHERE rowid_pk=1`)
+        .run(oldFlag === undefined ? 0 : oldFlag);
+    }
     db.prepare(`UPDATE v8_migration_runs SET status='rolled_back', notes=?, finished_at=? WHERE run_id=?`)
       .run(input.notes || 'rollback local; auditoría conservada', Date.now(), input.runId);
     commit(db);

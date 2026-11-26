@@ -12,68 +12,91 @@ del propietario en cada etapa.
 | Suite local (sin BD real) | 20 suites / 386 pruebas |
 | Supabase hosted desechable | 6/6 |
 | Concurrencia física (2 sesiones PostgREST) | 3/3 |
+| Migración local con triggers legacy reales | 6/6 pruebas |
+| Ensayo G1/G2 sobre copias | ver `docs/V8_G1_G2_REHEARSAL_RESULT.json` |
 
 ## Compuertas
 
-### G0 — Esquema `sync_*` de producción (solo lectura)
+### G0 — Esquema `sync_*` del destino (solo lectura) — ✅ EJECUTADO
 
-1. Crear `.env.production-readonly` (ignorado por Git) con un `DATABASE_URL` de
-   **usuario solo lectura**. Nunca usar el usuario maestro si hay uno limitado.
-2. Ejecutar:
+1. Se creó `.env.production-readonly` (ignorado por Git) y se conectó por el
+   pooler con la sesión forzada a `TRANSACTION READ ONLY`.
+2. Se ejecutó:
    ```
    node scripts/export-production-sync-schema.js --confirm-readonly
    ```
-   La sesión se fuerza a `TRANSACTION READ ONLY`; solo consulta catálogos y
-   `count(*)`. Salidas: `docs/PRODUCTION_SYNC_SCHEMA.sql` y
-   `docs/PRODUCTION_SYNC_SCHEMA.json` (sin credenciales).
-3. Revisar conjuntamente R-01 (tablas/columnas/fila(s)) y R-02 (cliente móvil:
-   qué dispositivos siguen escribiendo en `sync_*`).
+3. Resultado: **0 tablas `sync%`**, 0 tablas de usuario en `public`. R-01 queda
+   cerrado: no hay esquema heredado que migrar. Salidas:
+   `docs/PRODUCTION_SYNC_SCHEMA.sql` y `docs/PRODUCTION_SYNC_SCHEMA.json`.
 
-**Bloqueante:** todavía no hay credenciales de solo lectura de producción.
+La SQLite del POS todavía apunta al proyecto desechable
+(`vzwpbviq…`, `cloud_restaurant_id=27990c98-…`). Antes de G3/G4 debe apuntar al
+proyecto indicado y al `cloud_restaurant_id` correcto.
 
-### G1 — Backup verificado y decisiones de saldo
+### G1 — Backup verificado y decisiones de saldo — ⚠️ PREPARADO, BLOQUEANTE
 
-1. Hacer una **copia** de la SQLite del POS (nunca migrar la original) y
-   calcular su `sha256`.
-2. Copiar `docs/V8_BALANCE_DECISIONS.example.json` a
-   `docs/V8_BALANCE_DECISIONS.json` y rellenar **una fila por producto** con
-   `local_stock`, `remote_stock`, `decided_initial_stock`, `decision` y
-   `reason`. La migración nunca sobrescribe `stock` sin una decisión explícita.
-3. Ejecutar:
+1. Se hizo una **copia** de la SQLite del POS en
+   `backups/g1-20261126/database.sqlite` (ignorada por Git), `sha256`
+   `aebd7dd3…` e `integrity_check=ok`. La original no se abrió para escribir.
+2. Se generó `docs/V8_BALANCE_DECISIONS.json` con **10 propuestas** de saldo.
+   Todavía no son decisiones: `owner_confirmed=false`, los `reason` dicen
+   `PROPUESTA`, y faltan `restaurant_id` / `cloud_restaurant_id`.
+3. Verificación actual:
    ```
    node scripts/verify-v8-migration-inputs.js docs/V8_BALANCE_DECISIONS.json
    ```
-   Comprueba que la ruta no es la BD real, que el `sha256` coincide, que
-   `PRAGMA integrity_check` pasa **sobre una copia temporal**, y que cada
-   producto tiene decisión. Resultado: `docs/V8_MIGRATION_INPUTS_RESULT.json`.
+   Resultado `docs/V8_MIGRATION_INPUTS_RESULT.json`: **5 PASS / 3 FAIL**.
+   Los fallos son exactamente las compuertas que faltan.
 
-**Bloqueante:** decisiones del propietario y backup verificado.
+**Para cerrar G1 el propietario debe:**
 
-### G2 — Ensayo de migración sobre copias
+- revisar los 10 `decided_initial_stock` (el destino no tiene saldo remoto: las
+  propuestas conservan el stock local; Papas/Fideos/Dulce parecen gramos);
+- poner `owner_confirmed=true` y quitar los textos `PROPUESTA` de `reason`;
+- completar `restaurant_id` y `cloud_restaurant_id`;
+- repetir el comando de verificación hasta 8/8;
+- generar el input de la CLI:
+  ```
+  node scripts/build-v8-migration-input.js --out docs/V8_MIGRATION_CLI_INPUT.json
+  ```
 
-Con la copia de G1, ejecutar el flujo completo sobre **copias descartables**:
+### G2 — Ensayo de migración sobre copias — ✅ EJECUTADO (confirmación simulada)
+
+Con una confirmación **simulada** (nunca tus decisiones) sobre copias
+descartables:
 
 ```
-node scripts/v8-migrate-local.js analyze --db <copia.sqlite> --remote <json> --out <json>
-node scripts/v8-migrate-local.js validate --db <copia.sqlite> --plan <json>
-node scripts/v8-migrate-local.js apply --db <copia.sqlite> --plan <json> --copy-confirmed --run <id> --remote-untouched --confirm
-node scripts/v8-migrate-local.js rollback --db <copia.sqlite> --copy-confirmed --run <id> --remote-untouched --confirm
+node scripts/v8-migrate-local.js analyze  --db <copia.sqlite> --copy-confirmed --input <input.json>
+node scripts/v8-migrate-local.js validate --db <copia.sqlite> --copy-confirmed --backup-verified --input <input.json>
+node scripts/v8-migrate-local.js apply    --db <copia.sqlite> --copy-confirmed --backup-verified --confirm --input <input.json>
+node scripts/v8-migrate-local.js rollback --db <copia.sqlite> --copy-confirmed --confirm --remote-untouched --run <id>
 ```
 
-Criterio de paso: cero filas borradas, `sync_queue` en cuarentena, auditoría
-completa y rollback restore el estado previo. La CLI rechaza rutas reales.
+Resultado:
+
+- `analyze`: 10 productos, 130 filas `inventory` pendientes, 658 de otras
+  tablas, 47 órdenes abiertas, 168 movimientos legacy.
+- `apply`: 10 saldos escritos en `stock_confirmed_milli`, **130 cuarentenas**,
+  **0 filas borradas**, `sync_queue` 794 → 794.
+- `rollback`: 20 columnas restauradas, 130 filas des-cuarentenadas, auditoría
+  conservada, `sync_queue` 794 → 794, todos los saldos confirmados en `null`.
+
+Se encontró y corrigió un bug real: los triggers legacy insertaban filas nuevas
+en `sync_queue` durante `apply`/`rollback`. Ahora ambas funciones silencian
+`_sync_flag.applying_remote` dentro de la transacción y verifican que el total
+de la cola no cambie. Evidencia: `docs/V8_G1_G2_REHEARSAL_RESULT.json`.
 
 ### G3 — Staging
 
-1. Aplicar la migración SQL al proyecto Supabase de staging (el desechable ya
-   validado sirve como plantilla, pero staging debe tener el esquema `sync_*`
-   exportado en G0).
+1. Aplicar la migración SQL al proyecto Supabase de staging.
 2. Arrancar la app sobre una **copia** de SQLite con
    `LMM_INVENTORY_SYNC_V8=1`, `cloud_restaurant_id`, `supabase_url` y
    `supabase_anon_key` apuntando a staging.
 3. Repetir C-01/A-01/C-03/A-03 con datos sintéticos y verificar que el flag
    aparece como `enabled` en los logs y que la BD local no se altera al
    apagarlo.
+
+**Bloqueante:** G1 real y confirmación de qué proyecto es staging.
 
 ### G4 — Piloto y resto (requiere autorización explícita)
 
@@ -83,6 +106,6 @@ completa y rollback restore el estado previo. La CLI rechaza rutas reales.
    `UNAUTHORIZED_PRICE`, vales offline dentro del límite.
 3. Solo después extender al resto por restaurantes, nunca a medias.
 
-**En este momento no se ha ejecutado G0, G1, G2 ni G3 en producción.** El flag
-sigue en `0`; no se ha conectado al Supabase productivo ni a la SQLite real del
-POS para escribir.
+**En este momento G0 y G2 están listos; G1 sigue bloqueante y G3/G4 no se han
+ejecutado.** El flag sigue en `0`; no se ha conectado a la SQLite real del POS
+para escribir ni se han aplicado migraciones al destino indicado.

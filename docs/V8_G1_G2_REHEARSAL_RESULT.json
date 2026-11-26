@@ -1,0 +1,79 @@
+{
+  "generated_at": "2026-11-26T05:30:00Z",
+  "scope": "G1/G2 ejecutados SOLO sobre copias descartables. SQLite real del POS y Supabase productivo intactos. LMM_INVENTORY_SYNC_V8=0.",
+  "backup": {
+    "copy_path": "backups/g1-20261126/database.sqlite",
+    "sha256": "aebd7dd3bc61ca92b34310c4cc8214019ebe331520d5a1823be8c4906ba69459",
+    "bytes": 618496,
+    "integrity_check": "ok",
+    "git_ignored": true
+  },
+  "g0": {
+    "status": "OK (solo lectura)",
+    "sync_tables_found": 0,
+    "conclusion": "No hay esquema sync_* heredado en el destino indicado; R-01 cerrado sin tablas que migrar."
+  },
+  "g1": {
+    "draft": "docs/V8_BALANCE_DECISIONS.json",
+    "verification": "docs/V8_MIGRATION_INPUTS_RESULT.json",
+    "checks": {
+      "passed": 5,
+      "failed": 3,
+      "failed_names": [
+        "owner_confirmed explícito",
+        "ninguna decisión sigue marcada como propuesta",
+        "restaurante destino declarado"
+      ]
+    },
+    "products": 10,
+    "simulated_confirmation_run": {
+      "passed": 8,
+      "failed": 0,
+      "note": "Confirmación SIMULADA solo para el ensayo G2. No representa decisiones del propietario."
+    },
+    "additional_findings": {
+      "sqlite_config_apunta_a": "https://vzwpbviqgzebehavoori.supabase.co",
+      "cloud_restaurant_id_actual": "27990c98-a96f-46eb-957d-99f762a2f2fa",
+      "accion_requerida": "Antes de G3/G4 la app debe apuntar al proyecto productivo indicado y al cloud_restaurant_id correcto."
+    }
+  },
+  "g2": {
+    "analyze": {
+      "products": 10,
+      "discrepant": 0,
+      "pending_inventory_queue": 130,
+      "other_pending_queue": 658,
+      "open_orders": 47,
+      "legacy_movements": 168
+    },
+    "apply": {
+      "status": "applied",
+      "products": 10,
+      "queue_quarantined": 130,
+      "queue_rows_deleted": 0,
+      "queue_total_before": 794,
+      "queue_total_after": 794
+    },
+    "rollback": {
+      "status": "rolled_back",
+      "inventory_columns_restored": 20,
+      "queue_rows_restored": 130,
+      "quarantine_rows_kept": 130,
+      "queue_total_before": 794,
+      "queue_total_after": 794
+    },
+    "post_rollback_state": {
+      "sync_queue_total": 794,
+      "sync_queue_inventory_pending": 130,
+      "stock_confirmed_milli_all_null": true,
+      "confirmed_version_all_zero": true,
+      "audit_runs": ["apply:applied", "apply:rolled_back"]
+    }
+  },
+  "bug_found_and_fixed": {
+    "symptom": "Los triggers legacy de inventory insertaban filas nuevas en sync_queue durante apply (30) y rollback (20), inflando la cuarentena de 130 a 140/150.",
+    "fix": "apply() y rollback() fuerzan _sync_flag.applying_remote=1 dentro de la transacción, capturan la cola ANTES de escribir y verifican que el total de sync_queue no cambie; restauran el flag al terminar.",
+    "tests": "tests/v8-migration.test.js: 6/6 PASS (nuevo caso de triggers legacy)"
+  },
+  "status": "G2 PASS sobre copia. G1 sigue BLOQUEANTE hasta que el propietario confirme saldos e IDs. No se activó V8."
+}

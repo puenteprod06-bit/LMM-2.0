@@ -130,6 +130,33 @@ describe('migración local V8 (§17)', () => {
     db.close();
   });
 
+  test('los triggers legacy no crean filas nuevas en sync_queue durante apply', () => {
+    const db = openDb();
+    db.exec(`
+      CREATE TABLE _sync_flag (rowid_pk INTEGER PRIMARY KEY, applying_remote INTEGER DEFAULT 0);
+      INSERT INTO _sync_flag (rowid_pk, applying_remote) VALUES (1, 0);
+      CREATE TRIGGER trg_inv_queue_legacy AFTER UPDATE ON inventory
+        WHEN (SELECT applying_remote FROM _sync_flag WHERE rowid_pk=1) = 0
+      BEGIN
+        INSERT INTO sync_queue (table_name, row_uuid, operation, created_at, synced)
+        VALUES ('inventory', NEW.uuid, 'upsert', 9999, 0);
+      END;
+    `);
+    const res = migration.apply(db, input());
+    expect(res.counts.queue_total_before).toBe(3);
+    expect(res.counts.queue_total_after).toBe(3);
+    expect(res.counts.queue_quarantined).toBe(1);
+    expect(db.prepare(`SELECT applying_remote FROM _sync_flag WHERE rowid_pk=1`).get().applying_remote).toBe(0);
+    expect(db.prepare(`SELECT COUNT(*) AS n FROM sync_queue`).get().n).toBe(3);
+
+    const rb = migration.rollback(db, { runId: res.runId, remoteUntouched: true });
+    expect(rb.counts.queue_total_before).toBe(3);
+    expect(rb.counts.queue_total_after).toBe(3);
+    expect(db.prepare(`SELECT COUNT(*) AS n FROM sync_queue`).get().n).toBe(3);
+    expect(db.prepare(`SELECT applying_remote FROM _sync_flag WHERE rowid_pk=1`).get().applying_remote).toBe(0);
+    db.close();
+  });
+
   test('un fallo a mitad de apply revierte todo y registra la corrida fallida', () => {
     const db = openDb();
     db.exec(`CREATE TRIGGER fail_inv BEFORE UPDATE ON inventory WHEN NEW.id=2

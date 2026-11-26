@@ -31,8 +31,10 @@ un proyecto Supabase **nuevo y desechable**.
   la que lee la BD real): **20 suites / 386 pruebas PASS**.
 - **Conclusión:** el interruptor **NO es seguro de activar en producción todavía**.
   La validación técnica en Supabase aislado —incluida la concurrencia física—
-  ya pasó; quedan pendientes el esquema `sync_*` real y el ensayo de migración
-  con datos/decisiones del propietario.
+  ya pasó. G0 (export solo lectura del destino) y G2 (ensayo de migración y
+  rollback sobre copias) también pasaron; queda **G1: decisiones reales de
+  saldo, IDs de restaurante y confirmación del propietario**. Ver
+  `docs/V8_ACTIVATION_PLAN.md` y `docs/V8_G1_G2_REHEARSAL_RESULT.json`.
 
 ## V8.1: activación única
 
@@ -261,16 +263,22 @@ Recomendación: rotar las claves que quedaron visibles en el chat y actualizar
 
 ## Pendientes / recomendación
 
-1. Exportar el esquema remoto real de `sync_*` (R-01) y decidir el tratamiento
-   del cliente móvil (R-02). Requiere acceso de solo lectura al Supabase
-   productivo, que todavía no se proporcionó.
-2. Obtener backups verificados y las decisiones del propietario sobre el saldo
-   inicial de **cada** producto; hacer el ensayo completo de migración y
-   rollback sobre copias antes de cualquier activación.
-3. Solo entonces activar por etapas: staging → un restaurante piloto (todos sus
+1. ~~Exportar el esquema remoto real de `sync_*` (R-01).~~ **Hecho en G0:** el
+   destino indicado tiene 0 tablas `sync%`, por lo que no hay heredado que
+   migrar. Sigue pendiente decidir el tratamiento del cliente móvil (R-02) y
+   actualizar la SQLite, que aún apunta al proyecto desechable.
+2. Cerrar G1: el propietario debe confirmar los 10 saldos propuestos en
+   `docs/V8_BALANCE_DECISIONS.json`, poner `owner_confirmed=true`, completar
+   `restaurant_id` / `cloud_restaurant_id` y lograr 8/8 en
+   `verify-v8-migration-inputs.js`. El backup verificado ya existe en
+   `backups/g1-20261126/database.sqlite` (ignorado por Git).
+3. ~~Hacer el ensayo completo de migración y rollback sobre copias.~~ **Hecho en
+   G2 con confirmación simulada:** 130 cuarentenas, 0 filas borradas, rollback
+   limpio. Se corrigió un bug de triggers legacy que inflaban `sync_queue`.
+4. Solo entonces activar por etapas: staging → un restaurante piloto (todos sus
    dispositivos a la vez) → resto. Inventario no admite convivencia de clientes
    V7 y V8.
-4. Mantener `LMM_INVENTORY_SYNC_V8=0` en producción hasta completar los puntos
+5. Mantener `LMM_INVENTORY_SYNC_V8=0` en producción hasta completar los puntos
    anteriores. No se borraron ni reescribieron datos del usuario.
 
 **No se encendió ningún flag de producción en esta sesión.** "Activar todo"

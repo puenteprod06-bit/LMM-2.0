@@ -5,6 +5,7 @@
     "sha256": "",
     "integrity_check": "ok"
   },
+  "owner_confirmed": false,
   "restaurant_id": "",
   "cloud_restaurant_id": "",
   "products": [

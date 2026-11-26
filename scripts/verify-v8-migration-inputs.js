@@ -26,8 +26,11 @@ function check(name, ok, detail, checks) {
 
 async function main() {
   const arg = process.argv[2];
-  if (!arg) throw new Error('falta la ruta al JSON de decisiones');
+  if (!arg || arg.startsWith('--')) throw new Error('falta la ruta al JSON de decisiones');
   const decisionsPath = path.resolve(process.cwd(), arg);
+  const outArg = process.argv[3];
+  const outPath = outArg && !outArg.startsWith('--')
+    ? path.resolve(process.cwd(), outArg) : OUT;
   const d = JSON.parse(fs.readFileSync(decisionsPath, 'utf8'));
   const checks = [];
   const backupPath = d.backup && String(d.backup.copy_path || '');
@@ -59,17 +62,24 @@ async function main() {
   }
 
   const products = Array.isArray(d.products) ? d.products : [];
+  check('owner_confirmed explícito', d.owner_confirmed === true,
+    d.owner_confirmed === true ? 'confirmado' : 'falta confirmación del propietario', checks);
   check('hay productos declarados', products.length > 0, products.length + ' productos', checks);
   const bad = [];
+  const unconfirmed = [];
   products.forEach((p, i) => {
     const stock = Number(p.decided_initial_stock);
+    const label = '#' + (i + 1) + ' ' + (p.product_key || 'sin clave');
     if (!p.product_key || !Number.isFinite(stock) || stock < 0 ||
         !DECISIONS.has(p.decision) || (p.decision === 'manual' && !p.reason)) {
-      bad.push('#' + (i + 1) + ' ' + (p.product_key || 'sin clave'));
+      bad.push(label);
     }
+    if (/PROPUESTA|no confirmada/i.test(String(p.reason || ''))) unconfirmed.push(label);
   });
   check('cada producto tiene decisión de saldo válida', bad.length === 0,
     bad.length ? bad.join(', ') : 'todos válidos', checks);
+  check('ninguna decisión sigue marcada como propuesta', unconfirmed.length === 0,
+    unconfirmed.length ? unconfirmed.join(', ') : 'todas confirmadas', checks);
   check('restaurante destino declarado', !!d.restaurant_id && !!d.cloud_restaurant_id,
     [d.restaurant_id ? 'local' : '', d.cloud_restaurant_id ? 'cloud' : ''].filter(Boolean).join(' + ') || 'faltan', checks);
 
@@ -80,9 +90,9 @@ async function main() {
     summary: { checks: checks.length, passed: checks.filter((c) => c.ok).length,
       failed: checks.filter((c) => !c.ok).length },
   };
-  fs.mkdirSync(path.dirname(OUT), { recursive: true });
-  fs.writeFileSync(OUT, JSON.stringify(out, null, 2), 'utf8');
-  console.log('\nResultado: ' + path.relative(ROOT, OUT));
+  fs.mkdirSync(path.dirname(outPath), { recursive: true });
+  fs.writeFileSync(outPath, JSON.stringify(out, null, 2), 'utf8');
+  console.log('\nResultado: ' + path.relative(ROOT, outPath));
   if (out.summary.failed) process.exitCode = 1;
 }
 
