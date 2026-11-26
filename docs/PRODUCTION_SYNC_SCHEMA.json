@@ -1,0 +1,16 @@
+{
+  "exported_at": "2026-11-26T05:17:02.956Z",
+  "tables": [],
+  "related_functions": [
+    {
+      "schema": "realtime",
+      "name": "authorize",
+      "signature": "realtime.authorize(text,text,text,text,text,text[],text[])"
+    },
+    {
+      "schema": "realtime",
+      "name": "list_changes_sync",
+      "signature": "realtime.list_changes_sync(name,name,integer,integer)"
+    }
+  ]
+}
