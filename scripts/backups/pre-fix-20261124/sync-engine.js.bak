@@ -1,0 +1,693 @@
+// ============================================================
+//  sync-engine.js — Motor de sincronización local (SQLite) <-> nube (Supabase)
+// ============================================================
+
+const { createClient } = require('@supabase/supabase-js');
+const WebSocket = require('ws'); // Electron empaqueta Node 20, que no trae WebSocket nativo (recién en Node 22+)
+const logger = require('./logger');
+const { _db, DEVICE_ID, SYNC_TABLES, applyRemoteChange, setDbForTesting: dbSetDbForTesting } = require('./db');
+
+const PUSH_INTERVAL_MS = 3000;
+const RECONNECT_DELAY_MS = 5000;
+
+// ═════════════════════════════════════════════════════════════════════════
+//  LISTAS BLANCAS DE SEGURIDAD — Sincronización remota <-> local
+//
+//  Toda fila remota que llegue de Supabase se valida contra estas listas
+//  ANTES de tocar la base de datos local. Nombres de tabla y columna que
+//  no aparezcan aquí son rechazados de inmediato, impidiendo inyección SQL
+//  vía identificadores interpolados en UPDATE/INSERT.
+// ═════════════════════════════════════════════════════════════════════════
+
+// Tablas autorizadas para sincronización remota.
+// Fuente única de verdad: SYNC_TABLES de db.js (importado en la línea 8).
+// Esta lista se reutiliza aquí para evitar duplicación y desincronización.
+// Coincide con: ['orders','order_items','tables','menu_items','inventory',
+//   'customers','employees','categories','subcategories']
+
+// Columnas permitidas por tabla. Solo estas columnas pueden escribirse desde
+// un registro remoto. Cualquier otra columna en `remote.data` se descarta.
+// Las columnas de control interno (uuid, updated_at, device_id, deleted) se
+// gestionan por triggers de db.js y no se aceptan del payload remoto.
+const ALLOWED_COLUMNS = {
+  employees: ['name', 'role', 'phone', 'active', 'updated_at', 'deleted'],
+  categories: ['name', 'emoji', 'image_url', 'updated_at', 'deleted'],
+  subcategories: ['name', 'category_id', 'image_url', 'updated_at', 'deleted'],
+  menu_items: [
+    'name', 'price', 'cost', 'catId', 'emoji', 'image_url', 'available',
+    'area', 'subcatId', 'is_promo', 'promo_label', 'promo_ends_at',
+    'promo_original_price', 'promo_desc', 'promo_original_name',
+    'is_combo', 'combo_items', 'updated_at', 'deleted',
+  ],
+  inventory: [
+    'name', 'stock', 'minStock', 'unit', 'cost', 'salePrice', 'category',
+    'expirationDate', 'notes', 'emoji', 'showInPOS', 'area', 'updated_at', 'deleted',
+  ],
+  customers: ['name', 'phone', 'email', 'visits', 'totalSpent', 'points', 'updated_at', 'deleted'],
+  tables: [
+    'capacity', 'status', 'waiterId', 'waiterName', 'zona', 'numero',
+    'guests', 'openedAt', 'sort_order', 'lastOrderAt', 'currentOrderId',
+    'updated_at', 'deleted',
+  ],
+  orders: [
+    'subtotal', 'tax', 'total', 'discount', 'discountAmt', 'commissionAmt',
+    'type', 'tableId', 'customer', 'status', 'paymentMethod', 'createdAt',
+    'waiterName', 'openedAt', 'closedAt', 'updatedAt', 'tableNumber',
+    'paymentStatus', 'discountType', 'paidAt', 'taxRate', 'updated_at', 'deleted',
+  ],
+  order_items: [
+    'order_id', 'name', 'price', 'qty', 'lineTotal', 'note', 'itemType',
+    'invId', 'area', 'status', 'createdAt', 'order_uuid', 'updated_at', 'deleted',
+  ],
+};
+
+// Campos sensibles que NUNCA se escriben desde un registro remoto, aunque
+// aparezcan en remote.data. Se excluyen explícitamente por seguridad.
+const SENSITIVE_FIELDS = new Set([
+  'pin',            // hashes de PIN de empleados
+  'master_pass',    // contraseña del propietario
+  'session_token',  // tokens de sesión
+  'supabase_anon_key',
+  'cloud_restaurant_id',
+  'supabase_url',
+  'password',
+  'token',
+]);
+
+// ═════════════════════════════════════════════════════════════════════════
+//  LISTA BLANCA DE SALIDA — columnas que se ENVÍAN a Supabase
+//
+//  flushQueue envía `data` como payload JSON a Supabase. Antes se enviaba
+//  la fila local completa (`localRow`), lo que podía incluir campos
+//  sensibles (pin, hashes, tokens) o columnas internas que no pertenecen
+//  a la nube. Esta lista blanca filtra qué columnas se incluyen en `data`.
+//  Es independiente de ALLOWED_COLUMNS (entrada) porque las necesidades de
+//  entrada y salida pueden diferir.
+// ═════════════════════════════════════════════════════════════════════════
+
+const OUTPUT_COLUMNS = {
+  employees: ['uuid', 'name', 'role', 'phone', 'active'],
+  categories: ['uuid', 'name', 'emoji', 'image_url'],
+  subcategories: ['uuid', 'name', 'category_id', 'image_url'],
+  menu_items: [
+    'uuid', 'name', 'price', 'cost', 'catId', 'emoji', 'image_url',
+    'available', 'area', 'subcatId', 'is_promo', 'promo_label',
+    'promo_ends_at', 'promo_original_price', 'promo_desc',
+    'promo_original_name', 'is_combo', 'combo_items',
+  ],
+  inventory: [
+    'uuid', 'name', 'stock', 'minStock', 'unit', 'cost', 'salePrice',
+    'category', 'expirationDate', 'notes', 'emoji', 'showInPOS', 'area',
+  ],
+  customers: ['uuid', 'name', 'phone', 'email', 'visits', 'totalSpent', 'points'],
+  tables: [
+    'uuid', 'capacity', 'status', 'waiterId', 'waiterName', 'zona',
+    'numero', 'guests', 'openedAt', 'sort_order', 'lastOrderAt',
+    'currentOrderId',
+  ],
+  orders: [
+    'uuid', 'subtotal', 'tax', 'total', 'discount', 'discountAmt',
+    'commissionAmt', 'type', 'tableId', 'customer', 'status',
+    'paymentMethod', 'createdAt', 'waiterName', 'openedAt', 'closedAt',
+    'updatedAt', 'tableNumber', 'paymentStatus', 'discountType', 'paidAt',
+    'taxRate',
+  ],
+  order_items: [
+    'uuid', 'order_id', 'name', 'price', 'qty', 'lineTotal', 'note',
+    'itemType', 'invId', 'area', 'status', 'createdAt', 'order_uuid',
+  ],
+};
+
+// ═════════════════════════════════════════════════════════════════════════
+//  SOBRESCRITURA DE DB PARA PRUEBAS
+//
+//  sync-engine captura _db de db.js al importar. Para poder probar
+//  applyRemoteRow con SQLite en memoria sin tocar la base de producción,
+//  se permite inyectar una instancia alternativa. En producción esto queda
+//  en null y se usa _db de db.js normalmente.
+// ═════════════════════════════════════════════════════════════════════════
+
+let _dbOverride = null;
+
+function _getDb() {
+  return _dbOverride || _db;
+}
+
+/**
+ * Inyecta una instancia de better-sqlite3 para pruebas (p. ej. :memory:).
+ * Solo para uso en entorno de pruebas. No afecta la producción.
+ */
+function setDbForTesting(db) {
+  _dbOverride = db;
+  dbSetDbForTesting(db);
+}
+
+function clearDbOverride() {
+  _dbOverride = null;
+  require('./db').clearDbOverride();
+}
+
+let _supabaseOverride = null;
+
+/**
+ * Inyecta un mock de Supabase para pruebas de extremo a extremo.
+ * Solo para uso en entorno de pruebas.
+ */
+function setSupabaseForTesting(supabaseMock) {
+  _supabaseOverride = supabaseMock;
+}
+
+function clearSupabaseOverride() {
+  _supabaseOverride = null;
+}
+
+function _getSupabase() {
+  return _supabaseOverride || supabase;
+}
+
+let supabase = null;
+let restaurantId = null;
+let pushTimer = null;
+let pendingSweepTimer = null;
+let realtimeChannel = null;
+let isOnline = false;
+let notifyChangeFn = null;
+let notifyDebounceTimer = null;
+
+// Avisa a la interfaz local (Socket.IO) que hay datos nuevos, pero sin
+// spamear: si llegan muchas filas seguidas (ej. la descarga inicial),
+// junta todo en un solo aviso cada 400ms en vez de uno por fila.
+function scheduleUiNotify() {
+  if (!notifyChangeFn) return;
+  if (notifyDebounceTimer) return;
+  notifyDebounceTimer = setTimeout(() => {
+    notifyDebounceTimer = null;
+    try {
+      notifyChangeFn('sync:remote-update');
+    } catch (err) {
+      logger.warn('⚠️ [SYNC] Error notificando a la UI local:', err.message);
+    }
+  }, 400);
+}
+
+// ============================================================
+//  INIT — llamar una vez al arrancar, cuando ya hay config guardada
+//  (config.cloud_restaurant_id, config.supabase_url, config.supabase_anon_key)
+// ============================================================
+function initSync({ supabaseUrl, supabaseAnonKey, restaurantId: rid, notifyChange }) {
+  if (!supabaseUrl || !supabaseAnonKey || !rid) {
+    logger.warn('⚠️ [SYNC] Faltan credenciales de Supabase, sync deshabilitado (modo solo-local)');
+    return;
+  }
+  supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    realtime: { params: { eventsPerSecond: 10 }, transport: WebSocket }
+  });
+  restaurantId = rid;
+  notifyChangeFn = typeof notifyChange === 'function' ? notifyChange : null;
+
+  (async () => {
+    await initialPull();       // primero: bajar todo lo que ya haya en la nube
+    startPushLoop();           // después: subir lo que tengamos localmente y no esté allá
+    startRealtimePull();       // y recién ahí: escuchar cambios en vivo hacia adelante
+    if (pendingSweepTimer) clearInterval(pendingSweepTimer);
+    pendingSweepTimer = setInterval(sweepPendingItems, 10000);
+    pushPublicSettings();
+    logger.info('🔄 [SYNC] Motor de sincronización iniciado. restaurant_id=' + rid);
+  })();
+}
+
+// ============================================================
+//  DESCARGA INICIAL — trae todo lo que ya exista en Supabase
+//  para este restaurant_id y lo aplica localmente. Sin esto, un
+//  desktop nuevo (o reinstalado) nunca se enteraría de datos que
+//  ya subió otro dispositivo (la mobile, u otra PC) antes de que
+//  este arrancara por primera vez. Solo corre una vez por arranque
+//  del motor de sync (no en cada intervalo).
+//  Orden importa poco (el buffer de order_items ya resuelve
+//  llegadas fuera de orden), pero pull orders antes que
+//  order_items reduce el uso de ese buffer.
+// ============================================================
+async function initialPull() {
+  const order = ['employees', 'categories', 'subcategories', 'menu_items', 'inventory', 'customers', 'tables', 'orders', 'order_items'];
+  for (const table of order) {
+    try {
+      const { data, error } = await supabase
+        .from(`sync_${table}`)
+        .select('*')
+        .eq('restaurant_id', restaurantId);
+      if (error) throw error;
+      for (const remote of data || []) applyRemoteRow(table, remote);
+      logger.info(`⬇️ [SYNC] Descarga inicial de ${table}: ${data?.length || 0} fila(s)`);
+    } catch (err) {
+      logger.warn(`⚠️ [SYNC] No se pudo hacer la descarga inicial de ${table}:`, err.message);
+    }
+  }
+}
+
+// ============================================================
+//  CONFIG PÚBLICA — nombre del restaurante, moneda, tasa de
+//  impuesto, etc. Se publica en una tabla APARTE (no `config`
+//  entera) para nunca exponer credenciales sensibles
+//  (master_pass, supabase_anon_key, session_token) en la nube.
+//  La llama routes/config.js cada vez que se guarda la config,
+//  y también initSync() al arrancar.
+// ============================================================
+async function pushPublicSettings() {
+  if (!supabase || !restaurantId) return;
+  let cfg;
+  try {
+    cfg = _getDb().prepare(
+      `SELECT restaurant_name, currency, taxRate, ticketFooter, address, phone FROM config WHERE id = 1`
+    ).get();
+  } catch (err) {
+    logger.warn('⚠️ [SYNC] No se pudo leer config para publicar:', err.message);
+    return;
+  }
+  if (!cfg) return;
+
+  try {
+    const { error } = await supabase.from('sync_restaurant_settings').upsert(
+      {
+        restaurant_id: restaurantId,
+        restaurant_name: cfg.restaurant_name || '',
+        currency: cfg.currency || '$',
+        tax_rate: cfg.taxRate || 0,
+        ticket_footer: cfg.ticketFooter || '',
+        address: cfg.address || '',
+        phone: cfg.phone || '',
+        updated_at: Date.now(),
+      },
+      { onConflict: 'restaurant_id' }
+    );
+    if (error) throw error;
+  } catch (err) {
+    logger.warn('⚠️ [SYNC] No se pudo publicar config pública (¿falta correr la migración SQL?):', err.message);
+  }
+}
+
+function stopSync() {
+  if (pushTimer) clearInterval(pushTimer);
+  if (pendingSweepTimer) clearInterval(pendingSweepTimer);
+  if (realtimeChannel && supabase) supabase.removeChannel(realtimeChannel);
+  pushTimer = null;
+  pendingSweepTimer = null;
+  realtimeChannel = null;
+  isOnline = false;
+}
+
+// ============================================================
+//  PUSH — vacía sync_queue hacia Supabase (outbox pattern)
+// ============================================================
+function startPushLoop() {
+  if (pushTimer) clearInterval(pushTimer);
+  pushTimer = setInterval(flushQueue, PUSH_INTERVAL_MS);
+  flushQueue();
+}
+
+async function flushQueue() {
+  if (!_getSupabase()) return;
+  let pending;
+  try {
+    pending = _getDb().prepare(
+      `SELECT * FROM sync_queue WHERE synced = 0 ORDER BY created_at ASC LIMIT 200`
+    ).all();
+  } catch (err) {
+    logger.error('[SYNC] Error leyendo sync_queue:', err.message);
+    return;
+  }
+  if (pending.length === 0) return;
+
+  const byTable = {};
+  for (const item of pending) (byTable[item.table_name] = byTable[item.table_name] || []).push(item);
+
+  const doneIds = [];
+
+  for (const [table, items] of Object.entries(byTable)) {
+    // Defensa en profundidad: table_name proviene de sync_queue, que lo
+    // insertan los triggers de db.js, pero validamos contra lista blanca
+    // por si la base fue manipulada externamente.
+    if (!isAllowedTable(table)) {
+      logger.warn(
+        `[SYNC] sync_queue contiene tabla no autorizada, omitiendo: ${table}`
+      );
+      for (const item of items) doneIds.push(item.id);
+      continue;
+    }
+
+    // V8: no se empuja stock absoluto (reemplazaba saldos centrales con valores locales obsoletos).
+    if (table === 'inventory' && process.env.LMM_INVENTORY_SYNC_V8 === '1') {
+      for (const item of items) doneIds.push(item.id);
+      continue;
+    }
+
+    const latestByUuid = {};
+    for (const item of items) latestByUuid[item.row_uuid] = item;
+
+    const rowsToUpsert = [];
+    for (const uuid of Object.keys(latestByUuid)) {
+      const localRow = _getDb().prepare(`SELECT * FROM ${table} WHERE uuid = ?`).get(uuid);
+      if (!localRow) continue;
+      rowsToUpsert.push({
+        uuid: localRow.uuid,
+        restaurant_id: restaurantId,
+        updated_at: localRow.updated_at || Date.now(),
+        device_id: localRow.device_id || DEVICE_ID,
+        deleted: !!localRow.deleted,
+        data: sanitizeOutputColumns(table, localRow)
+      });
+    }
+
+    if (rowsToUpsert.length > 0) {
+      try {
+        const { error } = await _getSupabase().from(`sync_${table}`).upsert(rowsToUpsert, { onConflict: 'uuid' });
+        if (error) throw error;
+        isOnline = true;
+      } catch (err) {
+        isOnline = false;
+        logger.warn(`⚠️ [SYNC] Push falló para ${table} (¿sin conexión?):`, err.message);
+        continue; // no marcamos synced, se reintenta en el próximo ciclo
+      }
+    }
+    for (const item of items) doneIds.push(item.id);
+  }
+
+  if (doneIds.length > 0) {
+    const placeholders = doneIds.map(() => '?').join(',');
+    _getDb().prepare(`UPDATE sync_queue SET synced = 1 WHERE id IN (${placeholders})`).run(...doneIds);
+    _getDb().prepare(`DELETE FROM sync_queue WHERE synced = 1 AND created_at < ?`)
+      .run(Date.now() - 24 * 60 * 60 * 1000);
+  }
+}
+
+// ============================================================
+//  PULL — Supabase Realtime: aplica cambios que llegan de otros
+//  dispositivos / la app mobile, en vivo.
+// ============================================================
+function startRealtimePull() {
+  if (realtimeChannel && supabase) supabase.removeChannel(realtimeChannel);
+
+  realtimeChannel = supabase.channel(`restaurant-${restaurantId}`);
+
+  for (const table of SYNC_TABLES) {
+    realtimeChannel.on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: `sync_${table}`, filter: `restaurant_id=eq.${restaurantId}` },
+      (payload) => {
+        try {
+          applyRemoteRow(table, payload.new || payload.old);
+        } catch (err) {
+          logger.error(
+            `[SYNC] Error aplicando cambio remoto en tiempo real en ${table}:`,
+            err.message
+          );
+        }
+      }
+    );
+  }
+
+  realtimeChannel.subscribe((status) => {
+    if (status === 'SUBSCRIBED') {
+      logger.info('✅ [SYNC] Realtime conectado, escuchando cambios en vivo');
+      isOnline = true;
+    } else if (['CHANNEL_ERROR', 'TIMED_OUT', 'CLOSED'].includes(status)) {
+      isOnline = false;
+      logger.warn(`⚠️ [SYNC] Realtime desconectado (${status}), reintentando en ${RECONNECT_DELAY_MS}ms`);
+      setTimeout(startRealtimePull, RECONNECT_DELAY_MS);
+    }
+  });
+}
+
+// ── Buffer de order_items que llegaron ANTES que su orden padre ──────────
+// (puede pasar: la mobile push-ea la orden y sus ítems casi al mismo tiempo,
+// y por red el UPDATE/INSERT de order_items puede llegar primero). Los
+// guardamos acá indexados por order_uuid y los aplicamos apenas la orden
+// correspondiente aparece localmente.
+const pendingItemsByOrderUuid = {};
+
+/**
+ * Valida que un nombre de tabla esté autorizado para sincronización remota.
+ * Los nombres de tabla se interpolan directamente en SQL, por lo que deben
+ * provenir exclusivamente de esta lista blanca (definida en código, no del
+ * payload remoto).
+ */
+function isAllowedTable(table) {
+  return typeof table === 'string' && SYNC_TABLES.includes(table);
+}
+
+/**
+ * Valida y filtra las columnas de un payload remoto contra la lista blanca
+ * de la tabla indicada. Descarta columnas desconocidas y campos sensibles.
+ * Retorna un objeto con solo las columnas permitidas y seguras, o null si
+ * no hay ninguna columna válida para escribir.
+ */
+function sanitizeRemoteColumns(table, data) {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) {
+    return null;
+  }
+
+  const allowedCols = ALLOWED_COLUMNS[table];
+  if (!allowedCols) {
+    logger.warn('[SYNC] Sin lista blanca de columnas para la tabla: ' + table);
+    return null;
+  }
+
+  const allowedSet = new Set(allowedCols);
+  const safe = {};
+
+  for (const key of Object.keys(data)) {
+    // Nunca escribir el id local autoincremental
+    if (key === 'id') continue;
+    // Campos sensibles: nunca se escriben desde remoto
+    if (SENSITIVE_FIELDS.has(key)) continue;
+    // Columnas no listadas: rechazadas
+    if (!allowedSet.has(key)) {
+      logger.warn(
+        `[SYNC] Columna no permitida descartada en ${table}: ${key}`
+      );
+      continue;
+    }
+    safe[key] = data[key];
+  }
+
+  return Object.keys(safe).length > 0 ? safe : null;
+}
+
+/**
+ * Filtra una fila local contra la lista blanca de SALIDA antes de enviarla
+ * a Supabase. Descarta campos sensibles (pin, hashes, tokens) y columnas
+ * internas que no pertenecen a la nube. Retorna un objeto seguro para
+ * incluirse en el campo `data` del upsert.
+ */
+function sanitizeOutputColumns(table, row) {
+  if (!row || typeof row !== 'object' || Array.isArray(row)) {
+    return {};
+  }
+
+  const allowedCols = OUTPUT_COLUMNS[table];
+  if (!allowedCols) {
+    logger.warn('[SYNC] Sin lista blanca de salida para la tabla: ' + table);
+    return {};
+  }
+
+  const allowedSet = new Set(allowedCols);
+  const safe = {};
+
+  for (const key of Object.keys(row)) {
+    // Campos sensibles: nunca se envían a la nube
+    if (SENSITIVE_FIELDS.has(key)) continue;
+    // Columnas no listadas en salida: descartadas
+    if (!allowedSet.has(key)) continue;
+    safe[key] = row[key];
+  }
+
+  return safe;
+}
+
+/**
+ * Aplica un cambio remoto (desde Supabase Realtime o initialPull) a la
+ * base de datos local. Toda validación de tabla y columna ocurre antes de
+ * construir cualquier sentencia SQL.
+ */
+function applyRemoteRow(table, remote) {
+  // V8: con el interruptor encendido el stock ya NO se sincroniza como valor absoluto;
+  // lo gobierna services/inventory-sync-v8 (operaciones + eventos). Evita sobrescribir saldos.
+  if (table === 'inventory' && process.env.LMM_INVENTORY_SYNC_V8 === '1') return;
+  // 1. Validar tabla contra lista blanca
+  if (!isAllowedTable(table)) {
+    logger.warn('[SYNC] Tabla no autorizada en payload remoto: ' + String(table));
+    return;
+  }
+
+  // 2. Validar que remote sea un objeto
+  if (!remote || typeof remote !== 'object' || Array.isArray(remote)) {
+    logger.warn('[SYNC] Payload remoto inválido (no es objeto) para tabla: ' + table);
+    return;
+  }
+
+  // 3. Ignorar eco de nuestro propio push
+  if (remote.device_id === DEVICE_ID) return;
+
+  // 4. Validar uuid presente (es la clave de coincidencia local <-> remoto)
+  if (typeof remote.uuid !== 'string' || remote.uuid.length === 0) {
+    logger.warn('[SYNC] Payload remoto sin uuid válido para tabla: ' + table);
+    return;
+  }
+
+  // 5. Validar y sanitizar columnas del payload
+  const data = remote.data || {};
+  const safeCols = sanitizeRemoteColumns(table, data);
+  if (!safeCols) {
+    logger.warn(
+      `[SYNC] Payload remoto sin columnas escribibles para ${table} (uuid=${remote.uuid})`
+    );
+    return;
+  }
+
+  // 6. Preservar updated_at del nivel superior del payload (no viene dentro
+  //    de remote.data). Es necesario para la comparación de timestamps que
+  //    evita sobrescribir datos locales más nuevos con datos remotos más viejos.
+  if (typeof remote.updated_at === 'number') {
+    safeCols.updated_at = remote.updated_at;
+  }
+
+  try {
+    const local = _getDb().prepare(`SELECT id, updated_at FROM ${table} WHERE uuid = ?`).get(remote.uuid);
+    if (local && (local.updated_at || 0) >= (remote.updated_at || 0)) {
+      return; // local es igual o más nuevo, no sobrescribir
+    }
+
+    // 6. Construir sentencia SQL con identificadores ya validados contra
+    //    lista blanca; los valores van siempre como parámetros.
+    _getDb().prepare("UPDATE _sync_flag SET applying_remote = 1 WHERE rowid_pk = 1").run();
+    try {
+      const cols = Object.keys(safeCols);
+      const values = cols.map((c) => safeCols[c]);
+
+      if (local) {
+        // UPDATE: uuid va en el WHERE, no en SET
+        const setClause = cols.map((c) => `${c} = ?`).join(', ');
+        _getDb().prepare(`UPDATE ${table} SET ${setClause} WHERE uuid = ?`)
+          .run(...values, remote.uuid);
+      } else {
+        // INSERT: incluir uuid explícitamente porque el trigger de db.js
+        // está deshabilitado durante applyRemoteRow (applying_remote = 1)
+        // y no generará el uuid automáticamente.
+        const insertCols = ['uuid', ...cols];
+        const insertValues = [remote.uuid, ...values];
+        const placeholders = insertCols.map(() => '?').join(', ');
+        _getDb().prepare(`INSERT INTO ${table} (${insertCols.join(', ')}) VALUES (${placeholders})`)
+          .run(...insertValues);
+      }
+    } finally {
+      _getDb().prepare("UPDATE _sync_flag SET applying_remote = 0 WHERE rowid_pk = 1").run();
+    }
+
+    logger.info(`⬇️ [SYNC] Cambio remoto aplicado en ${table} (uuid=${remote.uuid})`);
+    scheduleUiNotify();
+
+    // Si acabamos de aplicar una orden, destrabamos sus ítems pendientes (si había)
+    if (table === 'orders' && pendingItemsByOrderUuid[remote.uuid]) {
+      const waiting = pendingItemsByOrderUuid[remote.uuid];
+      delete pendingItemsByOrderUuid[remote.uuid];
+      logger.info(
+        `🔓 [SYNC] Aplicando ${waiting.length} order_item(s) que esperaban la orden ${remote.uuid}`
+      );
+      for (const item of waiting) applyRemoteRow(item.table, item.remote);
+    }
+  } catch (err) {
+    logger.error(`❌ [SYNC] Error aplicando cambio remoto en ${table}:`, err.message);
+    throw err;
+  }
+}
+
+// ============================================================
+//  ESTADO — usado por /api/system/sync-status y pos-sync.js (frontend)
+// ============================================================
+function getSyncStatus() {
+  let pendingCount = 0;
+  try {
+    pendingCount = _getDb().prepare(`SELECT COUNT(*) as c FROM sync_queue WHERE synced = 0`).get().c;
+  } catch {}
+  return { enabled: !!supabase, isOnline, pendingCount, deviceId: DEVICE_ID, restaurantId };
+}
+
+// ============================================================
+//  VERIFICACIÓN DE INTEGRIDAD — compara, tabla por tabla, cuántas
+//  filas (no borradas) hay en la nube vs. localmente. No es una
+//  auto-reparación: es un chequeo para detectar si algo quedó
+//  desincronizado (ej: el push falló silenciosamente, o alguien
+//  tocó la base a mano). Se puede llamar manualmente desde
+//  Configuración → Nube, o dejar corriendo cada tanto.
+// ============================================================
+async function checkIntegrity() {
+  if (!supabase || !restaurantId) return null;
+  const report = {};
+  for (const table of SYNC_TABLES) {
+    let local = 0;
+    try {
+      local = _getDb().prepare(`SELECT COUNT(*) as c FROM ${table} WHERE (deleted IS NULL OR deleted = 0) AND uuid IS NOT NULL`).get().c;
+    } catch (err) {
+      report[table] = { error: err.message };
+      continue;
+    }
+    let remote = 0;
+    try {
+      const { count, error } = await supabase
+        .from(`sync_${table}`)
+        .select('uuid', { count: 'exact', head: true })
+        .eq('restaurant_id', restaurantId)
+        .eq('deleted', false);
+      if (error) throw error;
+      remote = count || 0;
+    } catch (err) {
+      report[table] = { error: err.message };
+      continue;
+    }
+    report[table] = { local, remote, match: local === remote };
+    if (local !== remote) {
+      logger.warn(`⚠️ [SYNC] Desfasaje en ${table}: local=${local} nube=${remote}`);
+    }
+  }
+  return report;
+}
+
+// Red de seguridad: por si el evento realtime de una orden se perdió
+// (reconexión, orden de llegada de eventos, etc.), cada 10s revisamos si
+// las órdenes de los ítems en espera ya aparecieron en la base local por
+// otra vía (por ejemplo, otro pull) y si es así, los aplicamos igual.
+function sweepPendingItems() {
+  const waitingUuids = Object.keys(pendingItemsByOrderUuid);
+  for (const orderUuid of waitingUuids) {
+    const parentOrder = _getDb().prepare(`SELECT id FROM orders WHERE uuid = ?`).get(orderUuid);
+    if (!parentOrder) continue;
+    const waiting = pendingItemsByOrderUuid[orderUuid];
+    delete pendingItemsByOrderUuid[orderUuid];
+    for (const item of waiting) applyRemoteRow(item.table, item.remote);
+  }
+}
+
+module.exports = {
+  initSync,
+  stopSync,
+  getSyncStatus,
+  flushQueue,
+  pushPublicSettings,
+  checkIntegrity,
+  // Exportadas para pruebas de seguridad y auditoría
+  applyRemoteRow,
+  isAllowedTable,
+  sanitizeRemoteColumns,
+  sanitizeOutputColumns,
+  // Sobreescritura de DB para pruebas (inyección de SQLite en memoria)
+  setDbForTesting,
+  clearDbOverride,
+  getDbForTesting: _getDb,
+  // Sobreescritura de Supabase para pruebas (mock de cliente remoto)
+  setSupabaseForTesting,
+  clearSupabaseOverride,
+  // Listas blancas (fuente única de tablas: SYNC_TABLES de db.js)
+  SYNC_TABLES,
+  ALLOWED_COLUMNS,
+  OUTPUT_COLUMNS,
+  SENSITIVE_FIELDS: Array.from(SENSITIVE_FIELDS),
+};

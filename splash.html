@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0d1726;
+      color: white;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      overflow: hidden;
+      border: 1px solid #c5a059;
+      -webkit-app-region: drag;
+      user-select: none;
+    }
+
+    /* ── Logo ── */
+    .logo-wrap {
+      width: 72px;
+      height: 72px;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Shown when the image loads correctly */
+    .logo-img {
+      width: 72px;
+      height: 72px;
+      object-fit: contain;
+    }
+
+    /* Fallback icon — hidden by default, shown via JS if img fails */
+    .logo-fallback {
+      display: none;
+      width: 72px;
+      height: 72px;
+      border-radius: 16px;
+      background: rgba(197, 160, 89, 0.15);
+      border: 2px solid #c5a059;
+      align-items: center;
+      justify-content: center;
+      font-size: 2rem;
+    }
+
+    /* ── App name ── */
+    .app-name {
+      font-size: 0.82rem;
+      color: #c5a059;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      font-weight: 800;
+    }
+
+    /* ── Subtitle / status ── */
+    .app-sub {
+      font-size: 0.65rem;
+      color: rgba(255, 255, 255, 0.35);
+      letter-spacing: 1px;
+      margin-top: 4px;
+      text-transform: uppercase;
+    }
+
+    /* ── Progress bar ── */
+    .loader-wrap {
+      width: 160px;
+      height: 3px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+      margin-top: 22px;
+      overflow: hidden;
+    }
+
+    .loader-bar {
+      width: 45%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, #c5a059, transparent);
+      border-radius: 10px;
+      animation: sweep 1.4s ease-in-out infinite;
+    }
+
+    @keyframes sweep {
+      0%   { transform: translateX(-120%); }
+      100% { transform: translateX(280%);  }
+    }
+
+    /* ── Version badge ── */
+    .version {
+      position: absolute;
+      bottom: 10px;
+      right: 12px;
+      font-size: 0.58rem;
+      color: rgba(255, 255, 255, 0.2);
+      letter-spacing: 0.5px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="logo-wrap">
+    <img
+  class="logo-img"
+  src="public/logo.png"
+  alt="Logo"
+  onerror="this.style.display='none'; document.querySelector('.logo-fallback').style.display='flex';"
+>
+    <div class="logo-fallback">🍽️</div>
+  </div>
+
+  <span class="app-name">La Mente Maestra</span>
+  <span class="app-sub">Iniciando sistema…</span>
+
+  <div class="loader-wrap">
+    <div class="loader-bar"></div>
+  </div>
+
+  <span class="version" id="ver"></span>
+
+  <script>
+    // Inject version from package.json if available via electron IPC
+    try {
+      if (window.__APP_VERSION__) {
+        document.getElementById('ver').textContent = 'v' + window.__APP_VERSION__;
+      }
+    } catch (_) {}
+  </script>
+
+</body>
+</html>

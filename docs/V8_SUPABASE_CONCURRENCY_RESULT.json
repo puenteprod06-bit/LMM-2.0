@@ -1,0 +1,33 @@
+{
+  "started_at": "2026-11-26T04:27:54.222Z",
+  "finished_at": "2026-11-26T04:27:56.828Z",
+  "project_url": "https://vzwpbviqgzebehavoori.supabase.co",
+  "command": "concurrency",
+  "checks": [
+    {
+      "name": "C-A: dos ventas paralelas no sobrevenden",
+      "ok": true,
+      "detail": "HTTP 200/200, aplicado=5 de 5"
+    },
+    {
+      "name": "C-B: stock final 0 y ningún movimiento negativo",
+      "ok": true,
+      "detail": "stock=0, version=3, negativos=0"
+    },
+    {
+      "name": "C-C: mismo operation_id en paralelo => 1 apply + 1 replay, 1 evento",
+      "ok": true,
+      "detail": "apply=1 replay=1 eventos=1 stock=1"
+    }
+  ],
+  "synthetic_ids": {
+    "restaurant_id": "d354d9ce-a208-4924-b50a-91c1cad97ba2",
+    "device_a": "e0e7afc4-9cbd-459b-bc5c-3fcb70cc6df5",
+    "device_b": "b7ee339f-b34f-4e69-b64d-2df4023e53e3"
+  },
+  "summary": {
+    "checks": 3,
+    "passed": 3,
+    "failed": 0
+  }
+}

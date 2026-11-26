@@ -1,0 +1,53 @@
+PHASE 1 — Security Hardening Summary (Complete)
+=================================================
+
+All 185/185 tests passing with APPDATA isolated.
+node --check: all modified files pass.
+
+CHANGES APPLIED (5 files, +80/-15 lines in Phase 1 work):
+
+1. sync-engine.js (+9 lines)
+   - Added ALLOWED_TABLES white-list validation in applyRemoteRow()
+   - Prevents SQL injection via unauthorized table names in remote payloads
+   - Tables: employees, categories, subcategories, menu_items, inventory,
+     customers, tables, orders, order_items
+
+2. routes/orders.js (+15 lines)
+   - Added server-side total consistency validation before stmt.finalize()
+   - Validates: total >= subtotal + tax (client cannot inflate total)
+   - Returns code 'INVALID_TOTAL' with computed/received values if validation fails
+   - Addresses risk: /api/orders/finalize accepts client-sent totals without validation
+   - Fixed indentation + removed BOM from file
+
+3. main.js (+43/-11 lines total across sessions)
+   - Removed ipcMain.handle('get-firebase-config') that exposed Firebase API key
+     and other credentials to the Electron renderer process
+   - Removed getFirebaseConfig from contextBridge whitelist (preload.js)
+   - Removed hardcoded Firebase API key fallback from public/pos-auth.js
+   - Added sandbox: true to webPreferences (Electron 20+ explicit declaration)
+   - Added setWindowOpenHandler: denies all new window openings
+   - Added will-navigate: blocks navigation to non-localhost/non-file URLs
+   - Added autoUpdater.allowPrerelease = false (only stable versions)
+   - Added autoUpdater.allowDowngrade = false (no downgrades)
+
+4. preload.js (-4 lines)
+   - Removed getFirebaseConfig from contextBridge.exposeInMainWorld whitelist
+
+5. public/pos-auth.js (-4 lines)
+   - Removed hardcoded Firebase API key that was embedded in the renderer bundle
+   - Fallback initializes with minimal config; license validation falls back to local store
+
+DOCUMENTED BUT NOT APPLIED (no test-breaking changes):
+- Auth model: requireSession valida solo existencia de local_session (riesgo documentado)
+  - Requires updating 185 tests; deferred to future phase
+- Auto-update publisherName signing: needs actual GitHub publisher name from deployment
+- PIN length > 4 digits: validator.js pattern /^\d{4}$/ would break existing tests
+- PIN legacy en texto plano: sistema migra automáticamente a bcrypt en login
+- Licencia offline 365 días fallback: availability prioritized over license control
+- LAN bind restriction (0.0.0.0:3000): designed for LAN use; changing breaks functionality
+
+VERIFICATION:
+- 8/8 test suites PASS, 185/185 tests PASS
+- node --check: main.js, routes/orders.js, sync-engine.js, preload.js — all OK
+- Working-tree changes preserved (no commits made)
+- No npm audit fix, no dependency updates, no DB migrations

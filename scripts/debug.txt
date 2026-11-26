@@ -1,0 +1,1 @@
+'d;\r\n\r\n        // ── VERIFICACIÓN DEFINITIVA DE STOCK (dentro de la transacción) ──\r\n        //  Re-verificamos dentro de la transacción para'

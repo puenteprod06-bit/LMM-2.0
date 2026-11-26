@@ -1,0 +1,157 @@
+'use strict';
+
+const { Router } = require('express');
+
+const asyncHandler = fn => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
+
+// ============================================================
+//  RUTAS DE INVENTARIO  —  /api/inventory/*
+// ============================================================
+module.exports = function inventoryRoutes(db, { requireSession, requireOwner, notifyChange, Validator }) {
+  const router = Router();
+
+  // GET /api/inventory
+  router.get('/', requireSession, asyncHandler(async (req, res) => {
+    db.all('SELECT * FROM inventory WHERE deleted IS NULL OR deleted = 0 ORDER BY id', [], (err, rows) => {
+      if (err) return res.status(500).json({ error: err.message });
+      const inventory = rows.map(r => ({ ...r, showInPOS: r.showInPOS === 1 }));
+      res.json(inventory);
+    });
+  }));
+
+  // POST /api/inventory/save
+  router.post('/save', requireOwner, asyncHandler(async (req, res) => {
+    const { id, name, stock, minStock, unit, cost, salePrice, category, expirationDate, notes, emoji, showInPOS } = req.body;
+
+    // ── Validación server-side ────────────────────────────────
+    const validation = Validator.validate({
+      name:      { required: true,  type: 'string',  minLen: 1, maxLen: 150 },
+      stock:     { required: false, type: 'number',  min: 0 },
+      minStock:  { required: false, type: 'number',  min: 0 },
+      cost:      { required: false, type: 'number',  min: 0 },
+      salePrice: { required: false, type: 'number',  min: 0 },
+    }, req.body);
+    if (!validation.valid) return res.status(400).json({ error: validation.errors });
+
+    const show = showInPOS ? 1 : 0;
+
+    if (id) {
+      db.run(
+        `UPDATE inventory SET name=?, stock=?, minStock=?, unit=?, cost=?, salePrice=?, category=?, expirationDate=?, notes=?, emoji=?, showInPOS=? WHERE id=?`,
+        [name, stock || 0, minStock || 0, unit || 'unidad', cost || 0, salePrice || 0, category || 'General', expirationDate, notes, emoji || '📦', show, id],
+        function (err) {
+          if (err) return res.status(500).json({ error: err.message });
+          notifyChange('inventory:updated');
+          res.json({ success: true });
+        }
+      );
+    } else {
+      db.run(
+        `INSERT INTO inventory (name, stock, minStock, unit, cost, salePrice, category, expirationDate, notes, emoji, showInPOS) VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+        [name, stock || 0, minStock || 0, unit || 'unidad', cost || 0, salePrice || 0, category || 'General', expirationDate, notes, emoji || '📦', show],
+        function (err) {
+          if (err) return res.status(500).json({ error: err.message });
+          notifyChange('inventory:updated');
+          res.json({ success: true, id: this.lastID });
+        }
+      );
+    }
+  }));
+
+  // DELETE /api/inventory/:id
+  router.delete('/:id', requireOwner, asyncHandler(async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) return res.status(400).json({ error: 'ID inválido' });
+    db.run('UPDATE inventory SET deleted = 1 WHERE id = ?', id, function (err) {
+      if (err) return res.status(500).json({ error: err.message });
+      notifyChange('inventory:updated');
+      res.json({ success: true });
+    });
+  }));
+
+  // POST /api/inventory/decrement — descuento atómico de stock en transacción.
+  // Body: { items: [{ id, qty }], adminAuthorized: boolean }
+  // Regla comercial: stock insuficiente permite la operación con advertencia.
+  // Stock negativo requiere autorización explícita de un administrador.
+  // El faltante se calcula y se registra, no se oculta con MAX(0, ...).
+  router.post('/decrement', requireSession, asyncHandler(async (req, res) => {
+    const items = Array.isArray(req.body) ? req.body : req.body?.items;
+    const adminAuthorized = req.body?.adminAuthorized === true;
+
+    if (!Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ error: 'Faltan items a descontar' });
+    }
+    const clean = items.map(it => ({
+      id: parseInt(it.id, 10),
+      qty: Number(it.qty)
+    })).filter(it => Number.isInteger(it.id) && Number.isFinite(it.qty) && it.qty >= 0);
+    if (clean.length === 0) {
+      return res.status(400).json({ error: 'Items inválidos' });
+    }
+
+    // ── Pre-verificar stock y autorización de administrador ────────
+    const shortages = [];
+    const native = db._native;
+    for (const it of clean) {
+      const inv = native.prepare(
+        `SELECT id, name, stock FROM inventory WHERE id = ? AND (deleted IS NULL OR deleted = 0)`
+      ).get(it.id);
+      if (inv) {
+        const available = Number(inv.stock) || 0;
+        const shortage = Math.max(0, it.qty - available);
+        if (shortage > 0) {
+          shortages.push({
+            invId: it.id,
+            name: inv.name,
+            available,
+            requested: it.qty,
+            shortage,
+          });
+        }
+      }
+    }
+
+    const hasShortage = shortages.length > 0;
+    if (hasShortage) {
+      const isAdmin = (req.session && req.session.role === 'owner' && (req.session.is_client === 0 || req.session.is_client === '0')) ||
+                      (req.session && req.session.role === 'admin' && (req.session.is_client === 1 || req.session.is_client === '1'));
+      const isAuthorized = adminAuthorized === true && isAdmin;
+
+      if (!isAuthorized) {
+        return res.status(400).json({
+          error: 'Stock insuficiente. Se requiere autorización de administrador.',
+          code: 'STOCK_SHORTAGE',
+          shortages,
+        });
+      }
+
+      // Registrar autorización en log
+      const logger = require('../logger');
+      logger.info(
+        `[INVENTORY] Stock negativo autorizado por ${req.session?.name || 'admin'} ` +
+        `(${req.session?.role}): ${shortages.map(s => `${s.name}: ${s.available} disp, ${s.requested} solicitado, faltante ${s.shortage}`).join('; ')}`
+      );
+    }
+
+    try {
+      const updated = native.transaction(() => {
+        const stmt = native.prepare(`UPDATE inventory SET stock = COALESCE(stock,0) - ? WHERE id = ? AND (deleted IS NULL OR deleted = 0)`);
+        const rows = [];
+        for (const it of clean) {
+          const info = stmt.run(it.qty, it.id);
+          if (info.changes > 0) {
+            const row = native.prepare(`SELECT id, stock, minStock, name FROM inventory WHERE id = ?`).get(it.id);
+            if (row) rows.push(row);
+          }
+        }
+        return rows;
+      })();
+      notifyChange('inventory:updated');
+      res.json({ success: true, updated: updated.length, rows: updated, shortages: hasShortage ? shortages : undefined });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  }));
+
+  return router;
+};

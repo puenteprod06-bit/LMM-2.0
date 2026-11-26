@@ -1,0 +1,9 @@
+LICENCIA DE USO - LA MENTE MAESTRA
+
+Este software es propiedad de Puenteprod.
+Todos los derechos reservados.
+
+Queda prohibida la redistribución no autorizada,
+la ingeniería inversa y la modificación del código fuente.
+
+Para soporte y licencias, contactar al desarrollador.

@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>La Mente Maestra — Gestión Gastronómica Pro</title>
+<link rel="stylesheet" href="styles.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-visual">
+<!-- Dentro del <head> -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0d1726">
+
+<!-- Iconos de respaldo -->
+<link rel="icon" type="image/png" href="logo.png">
+<link rel="apple-touch-icon" href="logo.png">
+
+<!-- Print: ocultar toda la UI y mostrar solo #print-area (fallback) -->
+<style>
+@media print {
+  body > *:not(#print-area) { display: none !important; }
+  #print-area { display: block !important; font-family: 'Courier New', Courier, monospace; font-size: 13px; color: #000; }
+}
+</style>
+</head>
+<body>
+<!-- BARRA DE TÍTULO (controles de ventana, separada de la app) -->
+<script>if(!window.electronAPI)document.documentElement.classList.add('no-titlebar');</script>
+<div class="app-titlebar" id="app-titlebar">
+  <div class="app-titlebar-title"><img src="logo.png" alt=""><span>La Mente Maestra</span></div>
+  <div class="app-titlebar-ctl">
+    <button type="button" title="Minimizar" onclick="winMinimize()"><span class="material-symbols-rounded">remove</span></button>
+    <button type="button" title="Maximizar / Restaurar" onclick="winToggleMaximize()"><span class="material-symbols-rounded">crop_square</span></button>
+    <button type="button" class="close" title="Cerrar" onclick="winClose()"><span class="material-symbols-rounded">close</span></button>
+  </div>
+</div>
+
+
+<!-- Pantalla de bloqueo de licencia ACTUALIZADA -->
+<div id="license-wall">
+    <div class="license-card">
+        <img id="login-logo-img" src="logo.png" alt="Logo">
+        
+        <!-- Importante: Estos IDs deben existir -->
+        <h1 id="license-msg">Verificando...</h1>
+        <p id="license-sub">Por favor espera.</p>
+        
+        <div id="license-contact">
+            <button class="btn btn-primary btn-license-retry" onclick="location.reload()">
+                <span class="material-symbols-rounded">refresh</span> REINTENTAR CONEXIÓN
+            </button>
+            
+            <button class="btn btn-license-back" onclick="regresarALoginDesdeBloqueo()">
+                <span class="material-symbols-rounded">logout</span> VOLVER AL LOGIN
+            </button>
+
+            <a href="mailto:Consultas@puenteprod.com" class="btn-license-contact">
+                <span class="material-symbols-rounded">mail</span> CONTACTAR SOPORTE
+            </a>
+        </div>
+    </div>
+</div>
+
+
+<!-- PRINT AREA -->
+<div id="print-area" style="display:none;"></div>
+
+<!-- LOGIN FLOTANTE — ventana compacta estilo software de escritorio -->
+<div class="register-wall" id="register-wall">
+  <div class="login-float-card" id="login-float-card">
+
+    <div class="login-float-winctl">
+      <button type="button" title="Minimizar" onclick="winMinimize()"><span class="material-symbols-rounded">remove</span></button>
+      <button type="button" class="win-ctl-close" title="Cerrar" onclick="winClose()"><span class="material-symbols-rounded">close</span></button>
+    </div>
+
+    <div class="login-float-head">
+      <div class="login-float-logo"><img src="logo.png" alt="Logo"></div>
+      <h1 class="login-float-title">La Mente Maestra</h1>
+      <p class="login-float-subtitle">Gestión Gastronómica Pro</p>
+    </div>
+
+    <div class="login-float-divider"><span></span></div>
+
+    <div class="login-tabs">
+      <button id="tab-owner" class="active" onclick="switchLoginTab('owner')">
+        <span class="material-symbols-rounded">workspace_premium</span> Propietario
+      </button>
+      <button id="tab-client" onclick="switchLoginTab('client')">
+        <span class="material-symbols-rounded">badge</span> Staff
+      </button>
+    </div>
+
+    <!-- FORMULARIO PROPIETARIO -->
+    <div id="owner-form" class="form-container">
+      <div id="owner-login-form">
+        <div class="form-group">
+          <label>Email o Usuario</label>
+          <div class="input-with-icon"><span class="material-symbols-rounded">mail</span><input type="email" id="login-email" placeholder="nombre@ejemplo.com"></div>
+        </div>
+        <div class="form-group">
+          <label>Contraseña</label>
+          <div class="input-with-icon">
+            <span class="material-symbols-rounded">lock</span>
+            <input type="password" id="login-pass" placeholder="••••••••">
+            <span class="material-symbols-rounded password-toggle"
+                  onclick="togglePasswordVisibility('login-pass', this)">
+                visibility
+            </span>
+          </div>
+          <div class="login-extra-options">
+            <label class="remember-box">
+              <input type="checkbox" id="remember-me">
+              <span>Recordarme</span>
+            </label>
+          </div>
+        </div>
+        <div class="error-msg" id="login-error"></div>
+        <button class="btn btn-primary btn-block" onclick="doOwnerLogin()">Iniciar sesión</button>
+      </div>
+    </div>
+
+    <!-- FORMULARIO STAFF / EMPLEADOS -->
+    <div id="client-form" class="form-container" style="display:none">
+      <div class="form-group"><label>Local</label><input id="client-restaurant" placeholder="Nombre del local"></div>
+      <div class="form-group"><label>Usuario</label><input id="client-name" placeholder="Tu nombre de usuario"></div>
+
+      <!-- Input oculto — leído por doClientLogin() sin cambios -->
+      <input type="hidden" id="client-pin">
+
+      <!-- Indicador de puntos del PIN -->
+      <div class="pin-display">
+        <span class="pin-display-label">PIN de Acceso</span>
+        <div class="pin-dots" id="pin-dots">
+          <span class="pin-dot" id="pin-dot-1"></span>
+          <span class="pin-dot" id="pin-dot-2"></span>
+          <span class="pin-dot" id="pin-dot-3"></span>
+          <span class="pin-dot" id="pin-dot-4"></span>
+        </div>
+      </div>
+
+      <!-- Numpad táctil 3×4 -->
+      <div class="pin-numpad" id="pin-numpad">
+        <button type="button" class="numpad-key" onclick="numpadPress('1')">1</button>
+        <button type="button" class="numpad-key" onclick="numpadPress('2')">2</button>
+        <button type="button" class="numpad-key" onclick="numpadPress('3')">3</button>
+        <button type="button" class="numpad-key" onclick="numpadPress('4')">4</button>
+        <button type="button" class="numpad-key" onclick="numpadPress('5')">5</button>
+        <button type="button" class="numpad-key" onclick="numpadPress('6')">6</button>
+        <button type="button" class="numpad-key" onclick="numpadPress('7')">7</button>
+        <button type="button" class="numpad-key" onclick="numpadPress('8')">8</button>
+        <button type="button" class="numpad-key" onclick="numpadPress('9')">9</button>
+        <button type="button" class="numpad-key numpad-del" onclick="numpadBackspace()">⌫</button>
+        <button type="button" class="numpad-key" onclick="numpadPress('0')">0</button>
+        <button type="button" class="numpad-key numpad-enter" onclick="doClientLogin()">✓</button>
+      </div>
+
+      <div class="error-msg" id="client-error"></div>
+    </div>
+
+    <div class="login-float-divider login-float-divider--footer"><span></span></div>
+
+    <div class="login-float-footer">
+      <span id="login-app-version">v2.3.2</span>
+    </div>
+
+  </div>
+</div>
+<script>
+  (function(){
+    var el = document.getElementById('login-app-version');
+    if (el) el.textContent = 'v' + (window.electronAPI?.appVersion || '2.3.2');
+  })();
+</script>
+
+<!-- SIDEBAR -->
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-logo">
+  <div class="logo-box logo-box--centered">
+    <!-- Cambiado src a logo.png y agregado el id "login-main-logo" -->
+    <img id="login-main-logo" src="logo.png" alt="Logo">
+</div>
+</div>
+
+  <nav class="sidebar-nav">
+    <div class="nav-section">Principal</div>
+    <div class="nav-item active" data-page="dashboard">
+      <span class="material-symbols-rounded">dashboard</span>
+      <span class="nav-text">Dashboard</span>
+    </div>
+    <div class="nav-item" data-page="pos">
+      <span class="material-symbols-rounded">point_of_sale</span>
+      <span class="nav-text">Punto de Venta</span>
+      <span class="nav-badge" id="badge-orders" style="display:none">0</span>
+    </div>
+
+    <div class="nav-section">Gestión</div>
+    <div class="nav-item" data-page="menu">
+      <span class="material-symbols-rounded">restaurant_menu</span>
+      <span class="nav-text">Menú</span>
+    </div>
+    <div class="nav-item" data-page="tables">
+      <span class="material-symbols-rounded">table_restaurant</span>
+      <span class="nav-text">Mesas</span>
+    </div>
+    <div class="nav-item" data-page="kitchen">
+      <span class="material-symbols-rounded">cooking</span>
+      <span class="nav-text">Cocina / Bar</span>
+      <span class="nav-badge" id="badge-kitchen" style="display:none">0</span>
+    </div>
+    <div class="nav-item" data-page="inventory">
+      <span class="material-symbols-rounded">inventory_2</span>
+      <span class="nav-text">Inventario</span>
+    </div>
+
+    <div class="nav-section">Relaciones</div>
+    <div class="nav-item" data-page="customers">
+      <span class="material-symbols-rounded">group</span>
+      <span class="nav-text">Clientes</span>
+    </div>
+    <div class="nav-item" data-page="employees">
+      <span class="material-symbols-rounded">badge</span>
+      <span class="nav-text">Empleados</span>
+    </div>
+    <div class="nav-item" data-page="history">
+  <span class="material-symbols-rounded">history_edu</span>
+  <span class="nav-text">Historial</span>
+</div>
+
+    <div class="nav-section">Análisis</div>
+    <div class="nav-item" data-page="reports">
+      <span class="material-symbols-rounded">analytics</span>
+      <span class="nav-text">Reportes</span>
+    </div>
+    <div class="nav-item" data-page="settings">
+      <span class="material-symbols-rounded">settings</span>
+      <span class="nav-text">Configuración</span>
+    </div>
+  </nav>
+
+  <div class="sidebar-footer">
+    <div class="user-card">
+      <div id="user-avatar-initials" class="user-avatar">S</div>
+      <div class="user-details">
+        <strong id="display-user-name" aria-label="Nombre de usuario"></strong>
+        <span id="display-user-role" class="user-role nav-text">Propietario</span>
+      </div>
+    </div>
+    <button class="logout-btn" onclick="doLogout()">
+      <span class="material-symbols-rounded">logout</span>
+      <span class="nav-text">Cerrar Sesión</span>
+    </button>
+    <div class="footer-signature">
+      App creada por <b>PuenteProd</b>
+    </div>
+    <div class="sidebar-version"><span id="sidebar-app-version">v2.3.2</span></div>
+  </div>
+</aside>
+<div class="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+<!-- MAIN -->
+<main class="main" id="main-app">
+  <header class="topbar">
+    <div class="topbar-left">
+      <button class="topbar-btn" onclick="toggleSidebar()">
+  <span class="material-symbols-rounded">menu</span>
+</button>
+      <h2 id="page-title">Dashboard</h2>
+      <span class="topbar-clock" id="clock"></span>
+    </div>
+    <div class="topbar-right">
+  <button class="topbar-btn" title="Pantalla Cocina" onclick="openKitchenDisplay()">
+    <span class="material-symbols-rounded">monitor</span>
+  </button>
+  
+  <!-- ESTE ES EL BLOQUE QUE DEBES ACTUALIZAR -->
+  <div class="notif-btn-wrapper">
+    <button class="topbar-btn" id="notif-btn" onclick="toggleNotifPanel()">
+      <span class="material-symbols-rounded">notifications</span>
+      <span class="dot hidden" id="notif-dot"></span>
+    </button>
+    
+    <!-- AGREGA ESTE BLOQUE DE AQUÍ ABAJO -->
+    <div class="notif-panel" id="notif-panel">
+      <div class="notif-header">
+        <h4>Notificaciones</h4>
+        <button class="btn btn-sm btn-secondary btn-notif-clear" onclick="clearAllNotifs()">Limpiar todo</button>
+      </div>
+      <div class="notif-list" id="notif-list">
+        <!-- Las notificaciones se cargan aquí por JS -->
+      </div>
+    </div>
+    <!-- FIN DEL BLOQUE AGREGADO -->
+  </div>
+
+  <button class="topbar-btn" onclick="toggleFullscreen()">
+    <span class="material-symbols-rounded">fullscreen</span>
+  </button>
+</div>
+  </header>
+  <div class="content" id="content">
+    <div id="view-dashboard" class="view" style="display:none"></div>
+  </div>
+</main>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal" id="modal">
+    <div class="modal-header"><h3 id="modal-title">Modal</h3><div class="modal-close" onclick="closeModal()">✕</div></div>
+    <div class="modal-body" id="modal-body"></div>
+    <div class="modal-footer" id="modal-footer"></div>
+  </div>
+</div>
+
+<div class="toast-container" id="toast-container"></div>
+<!-- Firebase App (el núcleo) -->
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<!-- Firebase Auth (para el login/registro) -->
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<!-- Firebase Database (para las licencias) -->
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+<script src="/socket.io/socket.io.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+
+
+
+ <script src="pos-state.js"></script>   <!-- DEFAULT_STATE · S · saveState · loadState -->
+  <script src="pos-utils.js"></script>   <!-- $ · fmt · toast · modal · confirmDialog · notifs -->
+ 
+  <!-- ── Fase 2: Núcleo ───────────────────────────────────── -->
+  <script src="pos-window-controls.js"></script> <!-- Controles de ventana (minimizar/maximizar/cerrar) -->
+  <script src="pos-auth.js"></script>    <!-- Firebase · login · licencia · roles -->
+  <script src="pos-dashboard.js"></script>   <!-- renderDashboard · updateDashboardChart -->
+  <script src="pos-sidebar-fx.js"></script> <!-- indicador de selección deslizante -->
+  <script src="pos-sync.js"></script>    <!-- Socket.IO · syncAndRender · startInstantSync -->
+ 
+  <!-- ── Fase 3: Módulos de feature ───────────────────────── -->
+  <script src="pos-nav.js"></script>     <!-- render() · updateBadges · logo -->
+  <script src="pos-dashboard-fx.js"></script> <!-- punto pulsante + indicador deslizante de filtros -->
+  <script src="pos-venta.js"></script>       <!-- renderPOS · sendToKitchen · finalizeOrder -->
+  <script src="pos-venta-fx.js"></script>    <!-- foco automático, atajos de teclado, flash, indicadores -->
+  <script src="pos-menu.js"></script>        <!-- renderMenu · openMIModal · saveMI -->
+  <script src="pos-mesas.js"></script>       <!-- renderTables · openTableActions -->
+  <script src="pos-cocina.js"></script>      <!-- renderKitchen · renderKDS · isKitchenMode -->
+  <script src="pos-inventario.js"></script>  <!-- renderInventory · openInvModal · checkExpiry -->
+  <script src="pos-clientes.js"></script>    <!-- renderCustomers · openCustModal -->
+  <script src="pos-empleados.js"></script>   <!-- renderEmployees · openEmpModal -->
+  <script src="pos-reportes.js"></script>    <!-- renderReports · renderHistory -->
+  <script src="pos-config.js"></script>      <!-- renderSettings · exportData · backups -->
+  <script src="pos-shortcuts.js"></script>
+  <script src="pos-telemetry.js"></script>
+  <script src="pos-onboarding.js"></script>
+  <script defer src="pos-search.js"></script>
+  <script src="pos-init.js"></script>        <!-- IIFE de reparación + arranque de la app -->
+ 
+  <!-- ── Módulos especializados (sin cambios) ─────────────── -->
+  <script src="tables-zones-module.js"></script>
+  <script src="print-manager.js"></script>
+  <script src="printer-client.js"></script>
+  <script src="waiter-notify.js"></script>
+  <script src="pos-sound-hooks.js"></script>
+  <script src="theme-manager.js"></script>
+  <script>
+    // Inicializar indicador de conectividad al cargar la app
+    document.addEventListener('DOMContentLoaded', function () {
+      if (typeof initConnectivityIndicator === 'function') {
+        initConnectivityIndicator();
+      }
+    });
+  </script>
+</body>
+</html>

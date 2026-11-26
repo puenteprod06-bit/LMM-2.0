@@ -1,0 +1,286 @@
+TERMINOS Y CONDICIONES DE USO
+LA MENTE MAESTRA - Version 2.0.0
+Software Gastronómico Inteligente
+Desarrollado por Puente Prod
+================================================================
+
+IMPORTANTE: LEA DETENIDAMENTE ESTE DOCUMENTO ANTES DE INSTALAR
+O UTILIZAR EL SOFTWARE. AL HACER CLIC EN "ACEPTO LOS TERMINOS Y
+CONDICIONES DE USO" O AL INSTALAR, COPIAR O UTILIZAR EL SOFTWARE,
+USTED ACEPTA QUEDAR VINCULADO POR LOS TERMINOS DE ESTE ACUERDO.
+SI NO ACEPTA ESTOS TERMINOS, NO INSTALE NI UTILICE EL SOFTWARE.
+
+================================================================
+
+
+1. LICENCIA DE USO
+------------------
+1.1  Puente Prod otorga al usuario una licencia personal, no
+     exclusiva, intransferible y limitada para instalar y usar
+     La Mente Maestra (en adelante "el Software") en una sola
+     computadora a la vez, exclusivamente para fines comerciales
+     propios del negocio gastronómico del usuario.
+
+1.2  Esta licencia no constituye una transferencia de propiedad.
+     Usted adquiere el derecho de uso del Software, no la
+     titularidad del mismo ni de su código fuente.
+
+1.3  Queda estrictamente prohibido:
+       a) Redistribuir, vender, sublicenciar o ceder el Software
+          a terceros sin autorización escrita de Puente Prod.
+       b) Copiar el Software total o parcialmente con fines
+          distintos a los de copia de seguridad personal.
+       c) Descompilar, realizar ingeniería inversa, desensamblar
+          o intentar obtener el código fuente del Software.
+       d) Modificar, adaptar o crear trabajos derivados basados
+          en el Software o cualquiera de sus componentes.
+       e) Utilizar el Software en redes o entornos compartidos
+          que excedan el alcance de la licencia adquirida.
+       f) Eliminar, alterar u ocultar cualquier aviso de derechos
+          de autor, marca registrada u otro aviso de propiedad
+          incluido en el Software.
+
+1.4  Para instalaciones en múltiples equipos (sucursales,
+     puestos de trabajo adicionales, etc.) se requiere adquirir
+     una licencia adicional por cada equipo. Comuníquese con
+     Puente Prod para conocer planes y precios para múltiples
+     instalaciones.
+
+1.5  Esta licencia entra en vigor en la fecha de instalación
+     del Software y permanece vigente mientras el usuario cumpla
+     con todos los términos del presente acuerdo.
+
+
+2. DATOS Y PRIVACIDAD
+---------------------
+2.1  Todos los datos del negocio (pedidos, mesas, empleados,
+     menú, categorías, inventario, clientes, reportes, cierres
+     de caja, configuraciones) se almacenan exclusivamente de
+     forma local en la computadora del usuario, en el archivo:
+       %AppData%\la-mente-maestra\database.sqlite
+
+2.2  Puente Prod NO tiene acceso, en ningún momento y bajo
+     ninguna circunstancia, a los datos del negocio del usuario
+     ni a la información de sus clientes o empleados.
+
+2.3  El Software puede establecer conexiones con servidores
+     externos únicamente para los siguientes fines específicos
+     y declarados:
+       a) Validar el estado y vigencia de la licencia de uso.
+       b) Verificar la disponibilidad de actualizaciones.
+     Ninguna otra información es transmitida en dichas
+     conexiones.
+
+2.4  No se recopila, procesa, almacena en la nube ni transmite
+     a terceros ningún dato personal del negocio, de sus
+     empleados ni de sus clientes.
+
+2.5  El usuario es el único responsable de resguardar, proteger
+     y realizar copias de seguridad de su base de datos y de
+     todo dato generado con el Software.
+
+2.6  En caso de desinstalación, los datos almacenados en el
+     equipo del usuario no son eliminados automáticamente,
+     salvo que el usuario haya seleccionado explícitamente la
+     opción de eliminar datos al desinstalar. Es responsabilidad
+     del usuario gestionar dichos datos.
+
+2.7  Puente Prod se compromete a mantener la presente política
+     de privacidad y a notificar al usuario ante cualquier
+     cambio material en las prácticas de manejo de datos.
+
+
+3. ACTUALIZACIONES
+------------------
+3.1  Las actualizaciones del Software son opcionales. El usuario
+     puede elegir instalarlas o no. Sin embargo, versiones muy
+     antiguas pueden dejar de recibir soporte técnico.
+
+3.2  Cada nueva versión puede incluir correcciones de errores,
+     mejoras de rendimiento, nuevas funcionalidades o la
+     eliminación o modificación de funcionalidades existentes.
+
+3.3  Actualizaciones de versión menor (ej: v2.0 a v2.1):
+       - Los datos del negocio se conservan intactos.
+       - La sesión de usuario activa puede mantenerse.
+       - La configuración general se preserva.
+
+3.4  Actualizaciones de versión mayor (ej: v1.x a v2.x):
+       - La sesión de usuario se reinicia por razones de
+         seguridad y compatibilidad.
+       - Los datos del negocio (pedidos, menú, empleados,
+         inventario) se conservan intactos en todos los casos.
+       - Pueden existir cambios en la estructura de la base
+         de datos que requieran una migración automática.
+
+3.5  Se recomienda realizar una copia de seguridad de la base
+     de datos antes de instalar cualquier actualización.
+
+3.6  Puente Prod no garantiza compatibilidad total hacia
+     versiones anteriores en actualizaciones de versión mayor.
+
+3.7  El instalador de actualizaciones desinstalará
+     automáticamente la versión anterior antes de instalar la
+     nueva, preservando los datos del usuario.
+
+
+4. LIMITACION DE RESPONSABILIDAD
+---------------------------------
+4.1  El Software se provee en el estado en que se encuentra
+     ("as-is"), sin garantías de ningún tipo, expresas o
+     implícitas, incluyendo pero no limitadas a garantías de
+     comerciabilidad, adecuación para un propósito particular
+     o no infracción de derechos de terceros.
+
+4.2  Puente Prod no se responsabiliza, bajo ninguna
+     circunstancia, por:
+       a) Pérdida de datos derivada de fallas de hardware,
+          corrupción del sistema operativo, virus, cortes de
+          energía u otras causas ajenas al Software.
+       b) Daños directos, indirectos, incidentales, especiales
+          o consecuentes derivados del uso o la imposibilidad
+          de uso del Software.
+       c) Pérdidas económicas, lucro cesante o daño emergente
+          causados por interrupciones en el funcionamiento
+          del Software, cualquiera sea su causa.
+       d) Daños causados por uso incorrecto, negligente o no
+          autorizado del Software por parte del usuario o
+          de terceros.
+       e) Incompatibilidades con hardware, sistemas operativos
+          o software de terceros instalados en el equipo.
+       f) Daños ocasionados por modificaciones realizadas al
+          Software por el usuario o por terceros no autorizados.
+       g) Interrupciones del servicio por causas de fuerza
+          mayor: desastres naturales, cortes de infraestructura,
+          actos de terceros u otros eventos imprevisibles.
+
+4.3  En ningún caso la responsabilidad total de Puente Prod
+     hacia el usuario por cualquier reclamación derivada del
+     presente acuerdo excederá el monto efectivamente abonado
+     por el usuario por la licencia del Software durante los
+     seis (6) meses anteriores al evento que da origen a la
+     reclamación.
+
+4.4  Se recomienda enfáticamente realizar copias de seguridad
+     periódicas de la base de datos ubicada en:
+       %AppData%\la-mente-maestra\database.sqlite
+     Puente Prod no se responsabiliza por la pérdida de datos
+     por ausencia de copias de seguridad.
+
+
+5. SOPORTE TECNICO
+------------------
+5.1  El soporte técnico está disponible exclusivamente para
+     licencias activas y vigentes. Las licencias vencidas o
+     sin renovar no tienen derecho a soporte técnico.
+
+5.2  Canales de contacto oficiales:
+       Email:    puenteprod06@gmail.com
+
+5.3  El soporte técnico cubre:
+       - Consultas sobre el uso y operación del Software.
+       - Asistencia para instalación y actualización.
+       - Reporte e investigación de errores del Software.
+       - Orientación para recuperación de datos (sin garantía
+         de recuperación total en casos de falla de hardware).
+
+5.4  El soporte técnico NO cubre:
+       - Daños causados por modificaciones al Software
+         realizadas por el usuario o terceros no autorizados.
+       - Problemas derivados de fallas de hardware o del
+         sistema operativo ajenas al Software.
+       - Capacitación general en informática no relacionada
+         con el uso del Software.
+       - Soporte para integraciones no oficiales con sistemas
+         de terceros.
+
+5.5  Los tiempos de respuesta al soporte no están garantizados
+     y pueden variar según la carga de trabajo y la complejidad
+     del caso. Puente Prod realizará sus mejores esfuerzos para
+     dar respuesta en un plazo razonable.
+
+
+6. PROPIEDAD INTELECTUAL
+------------------------
+6.1  La Mente Maestra, su código fuente, diseño visual,
+     logotipos, íconos, nombres comerciales, documentación
+     técnica y toda la propiedad intelectual asociada son
+     propiedad exclusiva de Puente Prod y están protegidos por
+     las leyes de propiedad intelectual, derechos de autor y
+     marcas aplicables en la República Argentina y tratados
+     internacionales vigentes.
+
+6.2  Este acuerdo no transfiere al usuario ningún derecho de
+     propiedad intelectual sobre el Software o cualquiera de
+     sus componentes. Todos los derechos no expresamente
+     otorgados en este acuerdo son reservados por Puente Prod.
+
+6.3  El usuario reconoce que el Software puede contener
+     tecnologías de terceros, las cuales están sujetas a sus
+     propios términos de licencia que el usuario acepta al
+     utilizar el Software.
+
+
+7. TERMINACION
+--------------
+7.1  Este acuerdo y la licencia otorgada en virtud del mismo
+     se rescindirán automáticamente si el usuario incumple
+     cualquiera de sus términos o condiciones.
+
+7.2  Ante la rescisión del acuerdo, el usuario deberá:
+       a) Desinstalar y eliminar todas las copias del Software
+          de su equipo y de cualquier soporte de almacenamiento.
+       b) Cesar todo uso del Software de forma inmediata.
+
+7.3  Puente Prod se reserva el derecho de rescindir este
+     acuerdo ante el incumplimiento del usuario, sin perjuicio
+     de las acciones legales que pudieran corresponder.
+
+7.4  Las cláusulas referidas a propiedad intelectual,
+     limitación de responsabilidad y confidencialidad
+     sobrevivirán a la terminación del presente acuerdo.
+
+
+8. LEY APLICABLE Y JURISDICCION
+--------------------------------
+8.1  El presente acuerdo se rige por las leyes vigentes en la
+     República Argentina.
+
+8.2  Para la resolución de cualquier controversia derivada de
+     este acuerdo, las partes se someten a la jurisdicción de
+     los Tribunales Ordinarios competentes, renunciando a
+     cualquier otro fuero que pudiera corresponderles.
+
+
+9. DISPOSICIONES GENERALES
+---------------------------
+9.1  Si alguna disposición de este acuerdo fuera declarada
+     inválida o inaplicable, las disposiciones restantes
+     continuarán en plena vigencia y efecto.
+
+9.2  La falta de ejercicio de cualquier derecho contemplado
+     en este acuerdo por parte de Puente Prod no constituirá
+     renuncia al mismo para el futuro.
+
+9.3  Este acuerdo constituye el acuerdo completo entre el
+     usuario y Puente Prod con respecto al objeto del mismo,
+     y reemplaza cualquier comunicación, acuerdo o
+     entendimiento previo, oral o escrito, relacionado con
+     el Software.
+
+9.4  Puente Prod puede modificar los términos de este acuerdo
+     en futuras versiones del Software. El uso continuado del
+     Software tras la actualización implicará la aceptación
+     de los nuevos términos.
+
+9.5  Para consultas sobre este acuerdo, comuníquese con:
+       Puente Prod
+       Email: puenteprod06@gmail.com
+
+
+================================================================
+Al marcar "Acepto los Términos y Condiciones de Uso" y
+continuar con la instalación, confirmás que has leído,
+comprendido y aceptás la totalidad de estos términos y
+condiciones en todas sus cláusulas.
+================================================================

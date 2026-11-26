@@ -1,0 +1,15 @@
+{
+  "name": "lmm-telemetry-server",
+  "version": "1.0.0",
+  "description": "Servidor de telemetría central — La Mente Maestra POS",
+  "main": "telemetry-server.js",
+  "scripts": {
+    "start":     "node telemetry-server.js",
+    "dev":       "node --watch telemetry-server.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^9.4.3",
+    "dotenv":         "^16.4.5",
+    "express":        "^4.18.3"
+  }
+}

@@ -1,0 +1,375 @@
+// ============================================================
+//  sync-engine.js — Motor de sincronización local (SQLite) <-> nube (Supabase)
+// ============================================================
+
+const { createClient } = require('@supabase/supabase-js');
+const WebSocket = require('ws'); // Electron empaqueta Node 20, que no trae WebSocket nativo (recién en Node 22+)
+const logger = require('./logger');
+const { _db, DEVICE_ID, SYNC_TABLES, applyRemoteChange } = require('./db');
+
+const PUSH_INTERVAL_MS = 3000;
+const RECONNECT_DELAY_MS = 5000;
+
+let supabase = null;
+let restaurantId = null;
+let pushTimer = null;
+let pendingSweepTimer = null;
+let realtimeChannel = null;
+let isOnline = false;
+let notifyChangeFn = null;
+let notifyDebounceTimer = null;
+
+// Avisa a la interfaz local (Socket.IO) que hay datos nuevos, pero sin
+// spamear: si llegan muchas filas seguidas (ej. la descarga inicial),
+// junta todo en un solo aviso cada 400ms en vez de uno por fila.
+function scheduleUiNotify() {
+  if (!notifyChangeFn) return;
+  if (notifyDebounceTimer) return;
+  notifyDebounceTimer = setTimeout(() => {
+    notifyDebounceTimer = null;
+    try {
+      notifyChangeFn('sync:remote-update');
+    } catch (err) {
+      logger.warn('⚠️ [SYNC] Error notificando a la UI local:', err.message);
+    }
+  }, 400);
+}
+
+// ============================================================
+//  INIT — llamar una vez al arrancar, cuando ya hay config guardada
+//  (config.cloud_restaurant_id, config.supabase_url, config.supabase_anon_key)
+// ============================================================
+function initSync({ supabaseUrl, supabaseAnonKey, restaurantId: rid, notifyChange }) {
+  if (!supabaseUrl || !supabaseAnonKey || !rid) {
+    logger.warn('⚠️ [SYNC] Faltan credenciales de Supabase, sync deshabilitado (modo solo-local)');
+    return;
+  }
+  supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    realtime: { params: { eventsPerSecond: 10 }, transport: WebSocket }
+  });
+  restaurantId = rid;
+  notifyChangeFn = typeof notifyChange === 'function' ? notifyChange : null;
+
+  (async () => {
+    await initialPull();       // primero: bajar todo lo que ya haya en la nube
+    startPushLoop();           // después: subir lo que tengamos localmente y no esté allá
+    startRealtimePull();       // y recién ahí: escuchar cambios en vivo hacia adelante
+    if (pendingSweepTimer) clearInterval(pendingSweepTimer);
+    pendingSweepTimer = setInterval(sweepPendingItems, 10000);
+    pushPublicSettings();
+    logger.info('🔄 [SYNC] Motor de sincronización iniciado. restaurant_id=' + rid);
+  })();
+}
+
+// ============================================================
+//  DESCARGA INICIAL — trae todo lo que ya exista en Supabase
+//  para este restaurant_id y lo aplica localmente. Sin esto, un
+//  desktop nuevo (o reinstalado) nunca se enteraría de datos que
+//  ya subió otro dispositivo (la mobile, u otra PC) antes de que
+//  este arrancara por primera vez. Solo corre una vez por arranque
+//  del motor de sync (no en cada intervalo).
+//  Orden importa poco (el buffer de order_items ya resuelve
+//  llegadas fuera de orden), pero pull orders antes que
+//  order_items reduce el uso de ese buffer.
+// ============================================================
+async function initialPull() {
+  const order = ['employees', 'categories', 'subcategories', 'menu_items', 'inventory', 'customers', 'tables', 'orders', 'order_items'];
+  for (const table of order) {
+    try {
+      const { data, error } = await supabase
+        .from(`sync_${table}`)
+        .select('*')
+        .eq('restaurant_id', restaurantId);
+      if (error) throw error;
+      for (const remote of data || []) applyRemoteRow(table, remote);
+      logger.info(`⬇️ [SYNC] Descarga inicial de ${table}: ${data?.length || 0} fila(s)`);
+    } catch (err) {
+      logger.warn(`⚠️ [SYNC] No se pudo hacer la descarga inicial de ${table}:`, err.message);
+    }
+  }
+}
+
+// ============================================================
+//  CONFIG PÚBLICA — nombre del restaurante, moneda, tasa de
+//  impuesto, etc. Se publica en una tabla APARTE (no `config`
+//  entera) para nunca exponer credenciales sensibles
+//  (master_pass, supabase_anon_key, session_token) en la nube.
+//  La llama routes/config.js cada vez que se guarda la config,
+//  y también initSync() al arrancar.
+// ============================================================
+async function pushPublicSettings() {
+  if (!supabase || !restaurantId) return;
+  let cfg;
+  try {
+    cfg = _db.prepare(
+      `SELECT restaurant_name, currency, taxRate, ticketFooter, address, phone FROM config WHERE id = 1`
+    ).get();
+  } catch (err) {
+    logger.warn('⚠️ [SYNC] No se pudo leer config para publicar:', err.message);
+    return;
+  }
+  if (!cfg) return;
+
+  try {
+    const { error } = await supabase.from('sync_restaurant_settings').upsert(
+      {
+        restaurant_id: restaurantId,
+        restaurant_name: cfg.restaurant_name || '',
+        currency: cfg.currency || '$',
+        tax_rate: cfg.taxRate || 0,
+        ticket_footer: cfg.ticketFooter || '',
+        address: cfg.address || '',
+        phone: cfg.phone || '',
+        updated_at: Date.now(),
+      },
+      { onConflict: 'restaurant_id' }
+    );
+    if (error) throw error;
+  } catch (err) {
+    logger.warn('⚠️ [SYNC] No se pudo publicar config pública (¿falta correr la migración SQL?):', err.message);
+  }
+}
+
+function stopSync() {
+  if (pushTimer) clearInterval(pushTimer);
+  if (pendingSweepTimer) clearInterval(pendingSweepTimer);
+  if (realtimeChannel && supabase) supabase.removeChannel(realtimeChannel);
+  pushTimer = null;
+  pendingSweepTimer = null;
+  realtimeChannel = null;
+  isOnline = false;
+}
+
+// ============================================================
+//  PUSH — vacía sync_queue hacia Supabase (outbox pattern)
+// ============================================================
+function startPushLoop() {
+  if (pushTimer) clearInterval(pushTimer);
+  pushTimer = setInterval(flushQueue, PUSH_INTERVAL_MS);
+  flushQueue();
+}
+
+async function flushQueue() {
+  if (!supabase) return;
+  let pending;
+  try {
+    pending = _db.prepare(
+      `SELECT * FROM sync_queue WHERE synced = 0 ORDER BY created_at ASC LIMIT 200`
+    ).all();
+  } catch (err) {
+    logger.error('[SYNC] Error leyendo sync_queue:', err.message);
+    return;
+  }
+  if (pending.length === 0) return;
+
+  const byTable = {};
+  for (const item of pending) (byTable[item.table_name] = byTable[item.table_name] || []).push(item);
+
+  const doneIds = [];
+
+  for (const [table, items] of Object.entries(byTable)) {
+    const latestByUuid = {};
+    for (const item of items) latestByUuid[item.row_uuid] = item;
+
+    const rowsToUpsert = [];
+    for (const uuid of Object.keys(latestByUuid)) {
+      const localRow = _db.prepare(`SELECT * FROM ${table} WHERE uuid = ?`).get(uuid);
+      if (!localRow) continue;
+      rowsToUpsert.push({
+        uuid: localRow.uuid,
+        restaurant_id: restaurantId,
+        local_id: localRow.id,
+        updated_at: localRow.updated_at || Date.now(),
+        device_id: localRow.device_id || DEVICE_ID,
+        deleted: !!localRow.deleted,
+        data: localRow
+      });
+    }
+
+    if (rowsToUpsert.length > 0) {
+      try {
+        const { error } = await supabase.from(`sync_${table}`).upsert(rowsToUpsert, { onConflict: 'uuid' });
+        if (error) throw error;
+        isOnline = true;
+      } catch (err) {
+        isOnline = false;
+        logger.warn(`⚠️ [SYNC] Push falló para ${table} (¿sin conexión?):`, err.message);
+        continue; // no marcamos synced, se reintenta en el próximo ciclo
+      }
+    }
+    for (const item of items) doneIds.push(item.id);
+  }
+
+  if (doneIds.length > 0) {
+    const placeholders = doneIds.map(() => '?').join(',');
+    _db.prepare(`UPDATE sync_queue SET synced = 1 WHERE id IN (${placeholders})`).run(...doneIds);
+    _db.prepare(`DELETE FROM sync_queue WHERE synced = 1 AND created_at < ?`)
+      .run(Date.now() - 24 * 60 * 60 * 1000);
+  }
+}
+
+// ============================================================
+//  PULL — Supabase Realtime: aplica cambios que llegan de otros
+//  dispositivos / la app mobile, en vivo.
+// ============================================================
+function startRealtimePull() {
+  if (realtimeChannel && supabase) supabase.removeChannel(realtimeChannel);
+
+  realtimeChannel = supabase.channel(`restaurant-${restaurantId}`);
+
+  for (const table of SYNC_TABLES) {
+    realtimeChannel.on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: `sync_${table}`, filter: `restaurant_id=eq.${restaurantId}` },
+      (payload) => applyRemoteRow(table, payload.new || payload.old)
+    );
+  }
+
+  realtimeChannel.subscribe((status) => {
+    if (status === 'SUBSCRIBED') {
+      logger.info('✅ [SYNC] Realtime conectado, escuchando cambios en vivo');
+      isOnline = true;
+    } else if (['CHANNEL_ERROR', 'TIMED_OUT', 'CLOSED'].includes(status)) {
+      isOnline = false;
+      logger.warn(`⚠️ [SYNC] Realtime desconectado (${status}), reintentando en ${RECONNECT_DELAY_MS}ms`);
+      setTimeout(startRealtimePull, RECONNECT_DELAY_MS);
+    }
+  });
+}
+
+// ── Buffer de order_items que llegaron ANTES que su orden padre ──────────
+// (puede pasar: la mobile push-ea la orden y sus ítems casi al mismo tiempo,
+// y por red el UPDATE/INSERT de order_items puede llegar primero). Los
+// guardamos acá indexados por order_uuid y los aplicamos apenas la orden
+// correspondiente aparece localmente.
+const pendingItemsByOrderUuid = {};
+
+function applyRemoteRow(table, remote) {
+  // Validación de lista blanca de tablas permitidas
+  const ALLOWED_TABLES = [
+    'employees', 'categories', 'subcategories', 'menu_items',
+    'inventory', 'customers', 'tables', 'orders', 'order_items'
+  ]
+  if (!ALLOWED_TABLES.includes(table)) {
+    logger.warn('[SYNC] Tabla no permitida en payload remoto: ' + table)
+    return
+  }
+  if (!remote) return;
+  if (remote.device_id === DEVICE_ID) return; // eco de nuestro propio push, ignorar
+
+  try {
+    const local = _db.prepare(`SELECT id, updated_at FROM ${table} WHERE uuid = ?`).get(remote.uuid);
+    if (local && (local.updated_at || 0) >= (remote.updated_at || 0)) return; // local es igual o más nuevo
+
+    const data = { ...(remote.data || {}) };
+    let cols = Object.keys(data).filter((k) => k !== 'id'); // nunca pisar el id local autoincrement
+
+    if (table === 'order_items') {
+      const orderUuid = data.order_uuid;
+      if (orderUuid) {
+        const parentOrder = _db.prepare(`SELECT id FROM orders WHERE uuid = ?`).get(orderUuid);
+        if (parentOrder) {
+          data.order_id = parentOrder.id;
+        } else {
+          // La orden todavía no llegó a este dispositivo: guardamos el ítem
+          // en espera y lo reintentamos cuando la orden se sincronice.
+          (pendingItemsByOrderUuid[orderUuid] = pendingItemsByOrderUuid[orderUuid] || []).push({ table, remote });
+          logger.info(`⏳ [SYNC] order_item ${remote.uuid} en espera de su orden (order_uuid=${orderUuid})`);
+          return;
+        }
+      }
+      cols = Object.keys(data).filter((k) => k !== 'id');
+    }
+
+    applyRemoteChange(() => {
+      if (local) {
+        const setClause = cols.map((c) => `${c} = ?`).join(', ');
+        _db.prepare(`UPDATE ${table} SET ${setClause} WHERE uuid = ?`).run(...cols.map((c) => data[c]), remote.uuid);
+      } else {
+        const placeholders = cols.map(() => '?').join(', ');
+        _db.prepare(`INSERT INTO ${table} (${cols.join(', ')}) VALUES (${placeholders})`).run(...cols.map((c) => data[c]));
+      }
+    });
+
+    logger.info(`⬇️ [SYNC] Cambio remoto aplicado en ${table} (uuid=${remote.uuid})`);
+    scheduleUiNotify();
+
+    // Si acabamos de aplicar una orden, destrabamos sus ítems pendientes (si había)
+    if (table === 'orders' && pendingItemsByOrderUuid[remote.uuid]) {
+      const waiting = pendingItemsByOrderUuid[remote.uuid];
+      delete pendingItemsByOrderUuid[remote.uuid];
+      logger.info(`🔓 [SYNC] Aplicando ${waiting.length} order_item(s) que esperaban la orden ${remote.uuid}`);
+      for (const item of waiting) applyRemoteRow(item.table, item.remote);
+    }
+  } catch (err) {
+    logger.error(`❌ [SYNC] Error aplicando cambio remoto en ${table}:`, err.message);
+  }
+}
+
+// ============================================================
+//  ESTADO — usado por /api/system/sync-status y pos-sync.js (frontend)
+// ============================================================
+function getSyncStatus() {
+  let pendingCount = 0;
+  try {
+    pendingCount = _db.prepare(`SELECT COUNT(*) as c FROM sync_queue WHERE synced = 0`).get().c;
+  } catch {}
+  return { enabled: !!supabase, isOnline, pendingCount, deviceId: DEVICE_ID, restaurantId };
+}
+
+// ============================================================
+//  VERIFICACIÓN DE INTEGRIDAD — compara, tabla por tabla, cuántas
+//  filas (no borradas) hay en la nube vs. localmente. No es una
+//  auto-reparación: es un chequeo para detectar si algo quedó
+//  desincronizado (ej: el push falló silenciosamente, o alguien
+//  tocó la base a mano). Se puede llamar manualmente desde
+//  Configuración → Nube, o dejar corriendo cada tanto.
+// ============================================================
+async function checkIntegrity() {
+  if (!supabase || !restaurantId) return null;
+  const report = {};
+  for (const table of SYNC_TABLES) {
+    let local = 0;
+    try {
+      local = _db.prepare(`SELECT COUNT(*) as c FROM ${table} WHERE (deleted IS NULL OR deleted = 0) AND uuid IS NOT NULL`).get().c;
+    } catch (err) {
+      report[table] = { error: err.message };
+      continue;
+    }
+    let remote = 0;
+    try {
+      const { count, error } = await supabase
+        .from(`sync_${table}`)
+        .select('uuid', { count: 'exact', head: true })
+        .eq('restaurant_id', restaurantId)
+        .eq('deleted', false);
+      if (error) throw error;
+      remote = count || 0;
+    } catch (err) {
+      report[table] = { error: err.message };
+      continue;
+    }
+    report[table] = { local, remote, match: local === remote };
+    if (local !== remote) {
+      logger.warn(`⚠️ [SYNC] Desfasaje en ${table}: local=${local} nube=${remote}`);
+    }
+  }
+  return report;
+}
+
+// Red de seguridad: por si el evento realtime de una orden se perdió
+// (reconexión, orden de llegada de eventos, etc.), cada 10s revisamos si
+// las órdenes de los ítems en espera ya aparecieron en la base local por
+// otra vía (por ejemplo, otro pull) y si es así, los aplicamos igual.
+function sweepPendingItems() {
+  const waitingUuids = Object.keys(pendingItemsByOrderUuid);
+  for (const orderUuid of waitingUuids) {
+    const parentOrder = _db.prepare(`SELECT id FROM orders WHERE uuid = ?`).get(orderUuid);
+    if (!parentOrder) continue;
+    const waiting = pendingItemsByOrderUuid[orderUuid];
+    delete pendingItemsByOrderUuid[orderUuid];
+    for (const item of waiting) applyRemoteRow(item.table, item.remote);
+  }
+}
+
+module.exports = { initSync, stopSync, getSyncStatus, flushQueue, pushPublicSettings, checkIntegrity };

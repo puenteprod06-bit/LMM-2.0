@@ -1,0 +1,107 @@
+'use strict';
+/**
+ * Puente con el flujo de pedidos existente (routes/orders.js). SOLO actúa si LMM_INVENTORY_SYNC_V8=1.
+ * Se llama DENTRO de la transacción de la venta, justo después de applyStockDiscount, para que
+ * pedido + movimientos provisionales + fila de outbox sean atómicos. No hace red. Nunca lanza:
+ * un fallo aquí no puede romper una venta (se registra y la venta sigue como antes).
+ *
+ * Alcance actual: SOLO la creación de un pedido nuevo (op 'sale'). merge/modify/cancel/reopen/devoluciones
+ * todavía NO se encolan (ver README del módulo): con el interruptor encendido esas operaciones no
+ * se sincronizarían, por eso el interruptor debe seguir apagado hasta completarlas.
+ */
+const crypto = require('crypto');
+const { fromMilli, milliFromLegacyNumber } = require('./decimal');
+const outbox = require('./outbox');
+
+function moneyString(x) {                       // REAL legado -> string con hasta 2 decimales canónicos
+  const cents = Math.round((Number(x) || 0) * 100);
+  const i = Math.floor(cents / 100);
+  const f = String(cents % 100).padStart(2, '0').replace(/0+$/, '');
+  return i + (f ? '.' + f : '');
+}
+
+function restaurantIdFromConfig(db) {
+  try { const r = db.prepare('SELECT cloud_restaurant_id AS r FROM config LIMIT 1').get(); if (r && r.r) return String(r.r); } catch (_) {}
+  return 'local';
+}
+
+/**
+ * @param db   conexión SQLite RAW (better-sqlite3) de la misma transacción de la venta
+ * @param ctx  { orderId, deviceId, userName, authorized }
+ * @returns { enqueued:boolean, operationId?, reason? }
+ */
+function onOrderCreated(db, ctx) {
+  try {
+    const order = db.prepare('SELECT id, uuid FROM orders WHERE id=?').get(ctx.orderId);
+    if (!order || !order.uuid) return { enqueued: false, reason: 'order_without_uuid' };
+
+    const rows = db.prepare(
+      `SELECT id, uuid, itemType, invId, name, price, qty, note FROM order_items WHERE order_id=? ORDER BY id`
+    ).all(ctx.orderId);
+
+    const items = [];
+    const firstItemByInv = new Map();            // invId -> [item_uuid,...] en orden
+    for (const r of rows) {
+      let itemUuid = r.uuid;
+      if (!itemUuid) { itemUuid = crypto.randomUUID(); db.prepare('UPDATE order_items SET uuid=? WHERE id=?').run(itemUuid, r.id); }
+      const isInv = r.itemType === 'inventory' && r.invId;
+      let invUuid = null;
+      if (isInv) {
+        const inv = db.prepare('SELECT uuid FROM inventory WHERE id=?').get(r.invId);
+        if (!inv || !inv.uuid) return { enqueued: false, reason: 'inventory_without_uuid' };
+        invUuid = inv.uuid;
+      }
+      const qtyMilli = milliFromLegacyNumber(r.qty);
+      if (qtyMilli <= 0) continue;
+      items.push({
+        item_uuid: itemUuid,
+        item_type: isInv ? 'inventory' : 'menu',
+        inventory_uuid: invUuid,
+        name: String(r.name || 'item').slice(0, 200) || 'item',
+        unit_price: moneyString(r.price),
+        qty: fromMilli(qtyMilli),
+        note: r.note ? String(r.note).slice(0, 500) : null,
+      });
+      if (isInv) {
+        if (!firstItemByInv.has(r.invId)) firstItemByInv.set(r.invId, []);
+        firstItemByInv.get(r.invId).push(itemUuid);
+      }
+    }
+    if (!items.length) return { enqueued: false, reason: 'no_items' };
+
+    const q = outbox.enqueue(db, {
+      opKind: 'sale', entityType: 'order', entityUuid: order.uuid, purposeSeq: 0,
+      intent: { expected_version: 0, snapshot: { origin: 'desktop' }, items, authorization_id: null },
+      deviceId: ctx.deviceId, restaurantId: restaurantIdFromConfig(db), clientActor: ctx.userName || null,
+    });
+
+    // Marcar como PROVISIONALES los movimientos que acaba de registrar applyStockDiscount para este pedido.
+    const cursorByInv = new Map();
+    const moves = db.prepare(
+      `SELECT m.id, m.inventory_id, m.movement_type, m.quantity, m.shortage_quantity, i.uuid AS inv_uuid
+         FROM stock_movements m JOIN inventory i ON i.id = m.inventory_id
+        WHERE m.reference_type='order' AND m.reference_id=? AND m.operation_id IS NULL ORDER BY m.id`
+    ).all(ctx.orderId);
+    for (const m of moves) {
+      if (m.movement_type !== 'sale' && m.movement_type !== 'shortage') continue;
+      const list = firstItemByInv.get(m.inventory_id) || [];
+      const key = `${m.inventory_id}|${m.movement_type}`;
+      const k = cursorByInv.get(key) || 0; cursorByInv.set(key, k + 1);
+      const lineId = list[Math.min(k, Math.max(0, list.length - 1))];
+      if (!lineId) continue;
+      const qtyM = milliFromLegacyNumber(m.quantity);
+      const shM = m.movement_type === 'shortage' ? qtyM : milliFromLegacyNumber(m.shortage_quantity || 0);
+      const applied = m.movement_type === 'sale' ? qtyM : 0;
+      db.prepare(
+        `UPDATE stock_movements SET operation_id=?, line_id=?, kind=?, inventory_uuid=?, requested_milli=?,
+                applied_milli=?, shortage_milli=?, delta_milli=?, confirmation_state='provisional', origin='local'
+          WHERE id=?`
+      ).run(q.operationId, lineId, m.movement_type, m.inv_uuid, applied + shM, applied, shM, -applied, m.id);
+    }
+    return { enqueued: true, operationId: q.operationId, deduplicated: q.deduplicated };
+  } catch (e) {
+    return { enqueued: false, reason: 'error', error: e.message };
+  }
+}
+
+module.exports = { onOrderCreated, moneyString, restaurantIdFromConfig };
