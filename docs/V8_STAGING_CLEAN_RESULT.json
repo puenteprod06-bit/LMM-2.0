@@ -1,0 +1,16 @@
+{
+  "started_at": "2026-11-26T05:37:02.872Z",
+  "project_url": "https://vzwpbviqgzebehavoori.supabase.co",
+  "command": "clean",
+  "checks": [],
+  "clean": {
+    "ok": true,
+    "note": "solo esquema lmm y RPC public.lmm_* del proyecto desechable"
+  },
+  "finished_at": "2026-11-26T05:37:03.541Z",
+  "summary": {
+    "checks": 0,
+    "passed": 0,
+    "failed": 0
+  }
+}

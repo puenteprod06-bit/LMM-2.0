@@ -1,0 +1,30 @@
+{
+  "applied_at": "2026-11-26T05:37:12.238Z",
+  "command": "apply-production-schema-only",
+  "project_url": "https://fxkxfidvdzpqqsmktxoq.supabase.co",
+  "expected_ref": "fxkxfidvdzpqqsmktxoq",
+  "applied": true,
+  "elapsed_ms": 1240,
+  "counts": {
+    "tables": 15,
+    "functions": 31,
+    "app_config_rls": 1
+  },
+  "flag": "LMM_INVENTORY_SYNC_V8 no tocado (permanece 0)",
+  "data_seeded": false,
+  "pos_sqlite_touched": false,
+  "read_only_verification": {
+    "mode": "TRANSACTION READ ONLY",
+    "postgres_version": "17.12",
+    "lmm_tables": 15,
+    "tables_with_rows": ["app_config"],
+    "app_config_rows": {
+      "authorization_grace_hours": 48,
+      "events_retention_days": 30,
+      "min_client_version": "0",
+      "offline_voucher_max_per_device": 5,
+      "offline_voucher_ttl_minutes": 720
+    },
+    "note": "app_config contiene solo los defaults insertados por la propia migración; no hay datos del POS ni usuarios sembrados."
+  }
+}

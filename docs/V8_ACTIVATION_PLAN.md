@@ -86,23 +86,26 @@ en `sync_queue` durante `apply`/`rollback`. Ahora ambas funciones silencian
 `_sync_flag.applying_remote` dentro de la transacción y verifican que el total
 de la cola no cambie. Evidencia: `docs/V8_G1_G2_REHEARSAL_RESULT.json`.
 
-### G3 — Staging
+### G3 — Staging y esquema productivo
 
-0. **Esquema SQL aplicado al staging desechable** (`vzwpbviq…`) el 2026-11-26
-   con `node scripts/validate-v8-supabase.js apply --confirm-isolated
-   --reset-throwaway --out docs/V8_STAGING_SCHEMA_RESULT.json`. Resultado: **15
-   tablas, 31 funciones, 15 tablas con RLS**, sin datos reales. El reset solo
-   eliminó el esquema sintético creado por el validador; la evidencia original
-   6/6 se conserva en `docs/V8_SUPABASE_ISOLATED_RESULT.json`.
-1. Verificar que la app apunte a ese staging y no al destino productivo.
-2. Arrancar la app sobre una **copia** de SQLite con
-   `LMM_INVENTORY_SYNC_V8=1`, `cloud_restaurant_id`, `supabase_url` y
-   `supabase_anon_key` apuntando a staging.
-3. Repetir C-01/A-01/C-03/A-03 con datos sintéticos y verificar que el flag
-   aparece como `enabled` en los logs y que la BD local no se altera al
-   apagarlo.
+0. **Staging desechable (`vzwpbviq…`)**: se aplicó el esquema (15 tablas, 31
+   funciones, 15 tablas con RLS; `docs/V8_STAGING_SCHEMA_RESULT.json`) y
+   posteriormente se **limpió** el esquema `lmm` y las RPC `public.lmm_*` a
+   petición del propietario (`docs/V8_STAGING_CLEAN_RESULT.json`). El proyecto
+   Supabase sigue existiendo; solo se borró ese esquema sintético. La evidencia
+   original 6/6 se conserva en `docs/V8_SUPABASE_ISOLATED_RESULT.json`.
+1. **Producción (`fxkxfid…`)**: el propietario autorizó aplicar **solo el SQL**.
+   Se ejecutó `node scripts/apply-v8-production.js --confirm-production`.
+   Resultado: **15 tablas, 31 funciones, RLS en `app_config`**. Verificación en
+   sesión `TRANSACTION READ ONLY`: 15 tablas, solo `app_config` con 5 valores
+   por defecto de la propia migración; ningún dato del POS ni usuario sembrado.
+   Evidencia: `docs/V8_PRODUCTION_SCHEMA_RESULT.json`.
+2. `LMM_INVENTORY_SYNC_V8` **sigue en 0**. No se tocó la SQLite real del POS.
+3. Pendiente: verificar que la app apunte al proyecto correcto y, sobre una
+   **copia** de SQLite en staging, probar C-01/A-01/C-03/A-03 con el flag en 1.
 
-**Bloqueante:** G1 real y confirmación de qué proyecto es staging.
+**Bloqueante:** G1 real (saldos/IDs) y el smoke en staging. No se ha activado V8
+en producción.
 
 ### G4 — Piloto y resto (requiere autorización explícita)
 
@@ -112,6 +115,7 @@ de la cola no cambie. Evidencia: `docs/V8_G1_G2_REHEARSAL_RESULT.json`.
    `UNAUTHORIZED_PRICE`, vales offline dentro del límite.
 3. Solo después extender al resto por restaurantes, nunca a medias.
 
-**En este momento G0 y G2 están listos; G1 sigue bloqueante y G3/G4 no se han
-ejecutado.** El flag sigue en `0`; no se ha conectado a la SQLite real del POS
-para escribir ni se han aplicado migraciones al destino indicado.
+**En este momento G0, G2 y el esquema SQL de G3 en producción están listos;
+G1 sigue bloqueante, el smoke en staging y G4 no se han ejecutado.** El flag
+sigue en `0`; no se ha conectado a la SQLite real del POS para escribir, no se
+sembraron datos y no se activó V8 en producción.

@@ -7,6 +7,7 @@
  *
  * Uso:
  *   node scripts/validate-v8-supabase.js connect --confirm-isolated
+ *   node scripts/validate-v8-supabase.js clean   --confirm-isolated
  *   node scripts/validate-v8-supabase.js apply   --confirm-isolated
  *   node scripts/validate-v8-supabase.js smoke   --confirm-isolated
  *   node scripts/validate-v8-supabase.js all     --confirm-isolated
@@ -245,6 +246,10 @@ async function main() {
     });
     output.connect = { ok: true, postgres_version: info.version, db: info.db };
     console.log('  PASS conectividad: PostgreSQL ' + info.version);
+  }
+  if (cmd === 'clean') {
+    await withPg(resetThrowaway);
+    output.clean = { ok: true, note: 'solo esquema lmm y RPC public.lmm_* del proyecto desechable' };
   }
   if (cmd === 'apply' || cmd === 'all') output.apply = await withPg(applyMigration);
   if (cmd === 'smoke' || cmd === 'all') {
