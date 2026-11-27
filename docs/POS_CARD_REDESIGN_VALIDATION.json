@@ -9,7 +9,7 @@
       "imagen extrema 800x120",
       "imagen extrema 120x800",
       "imagen cuadrada 400x400",
-      "imagen por defecto 736x1104",
+      "imagen por defecto 736x550",
       "nombre de 79 caracteres",
       "precio de 16 caracteres",
       "producto en promoción con precio original tachado"
@@ -19,9 +19,10 @@
     {
       "viewport": "1600x900",
       "columnasPorFila": [4],
-      "tamanoUnicoDeCard": "185x248",
+      "tamanoUnicoDeCard": "197x308",
+      "altoContenedorDeImagen": 150,
       "objectFit": "contain",
-      "imagenesNaturales": ["800x120", "120x800", "736x1104", "400x400"],
+      "imagenesNaturales": ["800x120", "120x800", "736x550", "400x400"],
       "nombreCortado": false,
       "precioCortado": false,
       "desbordeDeCard": "0x0"
@@ -29,9 +30,10 @@
     {
       "viewport": "1024x768",
       "columnasPorFila": [2, 2],
-      "tamanoUnicoDeCard": "203x228",
+      "tamanoUnicoDeCard": "199x286",
+      "altoContenedorDeImagen": 132,
       "objectFit": "contain",
-      "imagenesNaturales": ["800x120", "120x800", "736x1104", "400x400"],
+      "imagenesNaturales": ["800x120", "120x800", "736x550", "400x400"],
       "nombreCortado": false,
       "precioCortado": false,
       "desbordeDeCard": "0x0"
@@ -39,9 +41,10 @@
     {
       "viewport": "768x900",
       "columnasPorFila": [3, 1],
-      "tamanoUnicoDeCard": "221x212",
+      "tamanoUnicoDeCard": "221x264",
+      "altoContenedorDeImagen": 112,
       "objectFit": "contain",
-      "imagenesNaturales": ["800x120", "120x800", "736x1104", "400x400"],
+      "imagenesNaturales": ["800x120", "120x800", "736x550", "400x400"],
       "nombreCortado": false,
       "precioCortado": false,
       "desbordeDeCard": "0x0"
@@ -49,9 +52,10 @@
     {
       "viewport": "390x844",
       "columnasPorFila": [2, 2],
-      "tamanoUnicoDeCard": "152x212",
+      "tamanoUnicoDeCard": "152x264",
+      "altoContenedorDeImagen": 104,
       "objectFit": "contain",
-      "imagenesNaturales": ["800x120", "120x800", "736x1104", "400x400"],
+      "imagenesNaturales": ["800x120", "120x800", "736x550", "400x400"],
       "nombreCortado": false,
       "precioCortado": false,
       "desbordeDeCard": "0x0"
