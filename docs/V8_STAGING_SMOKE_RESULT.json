@@ -1,0 +1,62 @@
+{
+  "started_at": "2026-11-27T03:38:04.507Z",
+  "project_url": "https://vzwpbviqgzebehavoori.supabase.co",
+  "command": "all",
+  "checks": [
+    {
+      "name": "C-01: apply_operation devuelve applied",
+      "ok": true,
+      "detail": "HTTP 200 {\"order\":{\"items\":[{\"qty\":\"2\",\"name\":\"Cerveza\",\"deleted\":false,\"item_type\":\"inventory\",\"item_uuid\":\"7d4756f5-5a93-43dd-9da0-bb7b5ae953bd\",\"line_total\":\"160\",\"unit_price\":\"80\",\"inventory_uuid\":\"e014f1cb-cae4-4063-a8c0-18c653578469\"}],\"status\":\"open\",\"version\":1,\"order_uuid\":\"04507c53-5be9-41d6-9879-5"
+    },
+    {
+      "name": "A-01: replay por operation_id",
+      "ok": true,
+      "detail": "HTTP 200 {\"order\":{\"items\":[{\"qty\":\"2\",\"name\":\"Cerveza\",\"deleted\":false,\"item_type\":\"inventory\",\"item_uuid\":\"7d4756f5-5a93-43dd-9da0-bb7b5ae953bd\",\"line_total\":\"160\",\"unit_price\":\"80\",\"inventory_uuid\":\"e014f1cb-cae4-4063-a8c0-18c653578469\"}],\"status\":\"open\",\"version\":1,\"order_uuid\":\"04507c53-5be9-41d6-9879-5"
+    },
+    {
+      "name": "R-03: PT422 mapeado por PostgREST",
+      "ok": true,
+      "detail": "HTTP 422 código PT422"
+    },
+    {
+      "name": "C-03: get_events con ACK",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "name": "A-03/A-04: PIN bcrypt real + vale offline",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "name": "SE: anon no invoca RPC",
+      "ok": true,
+      "detail": "HTTP 401"
+    }
+  ],
+  "connect": {
+    "ok": true,
+    "postgres_version": "17.6",
+    "db": "postgres"
+  },
+  "apply": {
+    "applied": true,
+    "elapsed_ms": 663,
+    "counts": {
+      "tables": 15,
+      "functions": 31,
+      "rls_tables": 15
+    }
+  },
+  "synthetic_ids": {
+    "restaurant_id": "054dcfdf-23b5-4d94-9541-d14f608b4bfb",
+    "device_id": "c6bb069f-df23-4a7d-98b9-c25c134e05d8",
+    "inventory_uuid": "e014f1cb-cae4-4063-a8c0-18c653578469"
+  },
+  "finished_at": "2026-11-27T03:38:10.411Z",
+  "summary": {
+    "checks": 6,
+    "passed": 6,
+    "failed": 0
+  }
+}

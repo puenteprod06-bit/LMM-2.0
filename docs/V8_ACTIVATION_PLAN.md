@@ -101,11 +101,16 @@ de la cola no cambie. Evidencia: `docs/V8_G1_G2_REHEARSAL_RESULT.json`.
    por defecto de la propia migración; ningún dato del POS ni usuario sembrado.
    Evidencia: `docs/V8_PRODUCTION_SCHEMA_RESULT.json`.
 2. `LMM_INVENTORY_SYNC_V8` **sigue en 0**. No se tocó la SQLite real del POS.
-3. Pendiente: verificar que la app apunte al proyecto correcto y, sobre una
+3. **Smoke sintético en staging: 6/6 PASS** el 2026-11-27 con
+   `node scripts/validate-v8-supabase.js all --confirm-isolated
+   --reset-throwaway --out docs/V8_STAGING_SMOKE_RESULT.json`: conectividad,
+   C-01, A-01, R-03, C-03, A-03/A-04 y rechazo `anon`. El proyecto desechable
+   queda con datos sintéticos creados por el propio validador; nada de producción.
+4. Pendiente: verificar que la app apunte al proyecto correcto y, sobre una
    **copia** de SQLite en staging, probar C-01/A-01/C-03/A-03 con el flag en 1.
 
-**Bloqueante:** G1 real (saldos/IDs) y el smoke en staging. No se ha activado V8
-en producción.
+**Bloqueante:** G1 real (saldos/IDs) y la prueba de la app sobre copia con flag
+en 1. No se ha activado V8 en producción.
 
 ### G4 — Piloto y resto (requiere autorización explícita)
 
@@ -115,7 +120,8 @@ en producción.
    `UNAUTHORIZED_PRICE`, vales offline dentro del límite.
 3. Solo después extender al resto por restaurantes, nunca a medias.
 
-**En este momento G0, G2 y el esquema SQL de G3 en producción están listos;
-G1 sigue bloqueante, el smoke en staging y G4 no se han ejecutado.** El flag
-sigue en `0`; no se ha conectado a la SQLite real del POS para escribir, no se
-sembraron datos y no se activó V8 en producción.
+**En este momento G0, G2, el esquema SQL de G3 en producción y el smoke
+sintético en staging están listos; G1 sigue bloqueante y G4 no se ha
+ejecutado.** El flag sigue en `0`; no se ha conectado a la SQLite real del POS
+para escribir y no se activó V8 en producción. Los únicos datos sembrados son
+sintéticos y están en el proyecto desechable.
