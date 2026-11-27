@@ -264,6 +264,10 @@ describe('hook de pedidos (V8 §4.7)', () => {
     const env = JSON.parse(db.prepare('SELECT request_payload p FROM inventory_outbox').get().p);
     expect(env.intent.items[0].qty).toBe('2');
     expect(env.intent.items[0].unit_price).toBe('2500');
+    // El intent viaja a la nube: solo claves canónicas (la nube rechaza invId).
+    expect(Object.keys(env.intent.items[0]).sort()).toEqual(
+      ['inventory_uuid', 'item_type', 'item_uuid', 'name', 'note', 'qty', 'unit_price'].sort()
+    );
     expect(env.intent.expected_version).toBe(0);
     const m = db.prepare('SELECT confirmation_state s, applied_milli a, delta_milli d, kind k FROM stock_movements').get();
     expect(m).toEqual({ s: 'provisional', a: 2000, d: -2000, k: 'sale' });

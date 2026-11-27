@@ -209,6 +209,26 @@ describe('activación única V8', () => {
     expect(v8.activation.evaluate({ ...full, supabase_anon_key: null }, { LMM_INVENTORY_SYNC_V8: '1' }).reasons)
       .toContain('missing_supabase_anon_key');
   });
+
+  test('isEnabled() sin db argumento lee la BD activa (regresión _getDb)', () => {
+    const activeDb = openDb();
+    const previousDb = dbModule.getDbForTesting();
+    const prevFlag = process.env.LMM_INVENTORY_SYNC_V8;
+    dbModule.setDbForTesting(activeDb);
+    try {
+      delete process.env.LMM_INVENTORY_SYNC_V8;
+      expect(v8.isEnabled()).toBe(false);
+      process.env.LMM_INVENTORY_SYNC_V8 = '1';
+      expect(v8.activationState()).toEqual({ enabled: true, reasons: [] });
+      expect(v8.isEnabled()).toBe(true);
+      expect(dbModule.isV8Enabled()).toBe(true);
+    } finally {
+      dbModule.setDbForTesting(previousDb);
+      if (prevFlag === undefined) delete process.env.LMM_INVENTORY_SYNC_V8;
+      else process.env.LMM_INVENTORY_SYNC_V8 = prevFlag;
+      activeDb.close();
+    }
+  });
 });
 
 // ═══════════════════════════════════════════════════════════════════════════

@@ -20,7 +20,8 @@ function activationState(db) {
   if (db) return activation.state(db);
   try {
     const dbApi = require('../../db');
-    return activation.state(dbApi._getDb());
+    const activeDb = typeof dbApi.getDb === 'function' ? dbApi.getDb() : dbApi.getDbForTesting();
+    return activation.state(activeDb);
   } catch (_) {
     return activation.evaluate(null);
   }

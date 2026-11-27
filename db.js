@@ -1184,6 +1184,8 @@ module.exports = {
   applyRemoteChange,
   runInitialCloudBackfill,
   _db,
+  // acceso a la BD activa (respeta el override de pruebas)
+  getDb: _getDb,
   // override de db para pruebas
   setDbForTesting,
   clearDbOverride,

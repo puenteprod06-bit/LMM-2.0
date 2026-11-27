@@ -19,6 +19,7 @@
  * y el motor se queda en modo offline sin romper la venta local.
  */
 const { createClient } = require('@supabase/supabase-js');
+const WebSocket = require('ws'); // Electron empaqueta Node 20, que no trae WebSocket nativo (recién en Node 22+)
 const logger = require('../../logger');
 
 function normalizeError(err) {
@@ -62,9 +63,11 @@ function createRpc({
       return null;
     }
     try {
+      // Mismo transporte que el motor legacy: Electron usa Node 20 sin WebSocket
+      // nativo y supabase-js 2.109+ lo exige explícitamente en ese runtime.
       sb = createClient(url, key, {
         auth: { persistSession: false, autoRefreshToken: false },
-        realtime: { params: { eventsPerSecond: 10 } },
+        realtime: { params: { eventsPerSecond: 10 }, transport: WebSocket },
       });
     } catch (e) {
       log.warn && log.warn('[INV-V8][RPC] No se pudo crear el cliente Supabase:', e.message);

@@ -70,7 +70,9 @@ function buildIntentItems(db, orderId) {
       item_uuid: itemUuid,
       item_type: isInv ? 'inventory' : 'menu',
       inventory_uuid: invUuid,
-      invId: r.invId || null,                  // clave numérica para casar con stock_movements.inventory_id
+      // OJO: el intent es canónico. La clave local invId NO puede viajar a la
+      // nube (PT422 invalid_intent: $.items[].unknown_key); se usa solo en local
+      // mediante localInventoryIndex() para casar con stock_movements.
       name: String(r.name || 'item').slice(0, 200) || 'item',
       unit_price: moneyString(r.price),
       qty: fromMilli(qtyMilli),
@@ -78,6 +80,28 @@ function buildIntentItems(db, orderId) {
     });
   }
   return items;
+}
+
+/**
+ * Índice local item_uuid -> invId. Mapea el intent canónico (sin claves locales)
+ * contra los movimientos de stock, que usan inventory_id numérico.
+ */
+function localInventoryIndex(db, orderId, items) {
+  const rows = db.prepare(
+    `SELECT uuid, itemType, invId FROM order_items WHERE order_id=?`
+  ).all(orderId);
+  const uuidToInv = new Map();
+  for (const r of rows) {
+    if (r.itemType === 'inventory' && r.invId && r.uuid) uuidToInv.set(r.uuid, r.invId);
+  }
+  const byInv = new Map();
+  for (const it of items) {
+    const invId = uuidToInv.get(it.item_uuid);
+    if (!invId) continue;
+    if (!byInv.has(invId)) byInv.set(invId, []);
+    byInv.get(invId).push(it.item_uuid);
+  }
+  return byInv;
 }
 
 /**
@@ -154,15 +178,8 @@ function onOrderCreated(db, ctx) {
     if (!items) return { enqueued: false, reason: 'inventory_without_uuid' };
     if (!items.length) return { enqueued: false, reason: 'no_items' };
 
-    // Ítems de inventario de la orden, claveados por invId (numérico) para casar
-    // con stock_movements.inventory_id al marcarlos provisionales.
-    const firstItemByInv = new Map();
-    for (const it of items) {
-      if (it.item_type === 'inventory' && it.invId) {
-        if (!firstItemByInv.has(it.invId)) firstItemByInv.set(it.invId, []);
-        firstItemByInv.get(it.invId).push(it.item_uuid);
-      }
-    }
+    // Mapeo local (invId) para marcar movimientos; el intent enviado es canónico.
+    const firstItemByInv = localInventoryIndex(db, ctx.orderId, items);
 
     const q = outbox.enqueue(db, {
       opKind: 'sale', entityType: 'order', entityUuid: order.uuid, purposeSeq: 0,
@@ -194,15 +211,8 @@ function onOrderModified(db, ctx) {
     if (!items) return { enqueued: false, reason: 'inventory_without_uuid' };
     if (!items.length) return { enqueued: false, reason: 'no_items' };
 
-    // Ítems de inventario de la orden, claveados por invId (numérico) para casar
-    // con stock_movements.inventory_id al marcarlos provisionales.
-    const firstItemByInv = new Map();
-    for (const it of items) {
-      if (it.item_type === 'inventory' && it.invId) {
-        if (!firstItemByInv.has(it.invId)) firstItemByInv.set(it.invId, []);
-        firstItemByInv.get(it.invId).push(it.item_uuid);
-      }
-    }
+    // Mapeo local (invId) para marcar movimientos; el intent enviado es canónico.
+    const firstItemByInv = localInventoryIndex(db, ctx.orderId, items);
 
     const q = outbox.enqueue(db, {
       opKind: 'modify', entityType: 'order', entityUuid: order.uuid, purposeSeq: Number(ctx.expectedVersion || 0),
@@ -243,7 +253,7 @@ function onOrderCancelled(db, ctx) {
     // vinculados a la operación de cancelación.
     const firstItemByInv = new Map(); // cancel no añade ítems; se usa solo para key de tipo return
     const rows = db.prepare(
-      `SELECT id FROM order_items WHERE order_id=? ORDER BY id`
+      `SELECT id, uuid, itemType, invId FROM order_items WHERE order_id=? ORDER BY id`
     ).all(ctx.orderId);
     // Ítems de inventario como referencia de línea (uno por ítem, repetido si hace falta)
     const invItems = rows.filter((r) => r.itemType === 'inventory' && r.invId);

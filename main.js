@@ -4,16 +4,19 @@ const path = require('path');
 const fs = require('fs');
 const logger = require('./logger');
 const dotenv = require('dotenv');
-const startServer = require('./server.js');
 const { ipcMain } = require('electron');
 
 // ============================================================
 //  DOTENV
 // ============================================================
+// Debe ir ANTES de require('./server.js'): server.js reanuda la sync y decide
+// si arranca el motor V8 en el momento en que se carga el módulo.
 const envPath = app.isPackaged
   ? path.join(process.resourcesPath, '.env')
   : path.join(__dirname, '.env');
 dotenv.config({ path: envPath });
+
+const startServer = require('./server.js');
 
 // ============================================================
 //  CRASH REPORTER

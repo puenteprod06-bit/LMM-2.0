@@ -10,7 +10,7 @@ compuertas cerradas y lo que aún falta para extender el piloto.
 | Prueba | Resultado |
 |---|---|
 | SQL en PGlite (sin red) | 14/14 |
-| Suite local (sin BD real) | 21 suites / 389 pruebas |
+| Suite local (sin BD real) | 21 suites / 390 pruebas |
 | Supabase hosted desechable | 6/6 |
 | Concurrencia física (2 sesiones PostgREST) | 3/3 |
 | Migración local con triggers legacy reales | 6/6 pruebas |
@@ -125,11 +125,22 @@ Tras la confirmación real se aplicó la migración a la SQLite del POS con
    Evidencia: `docs/V8_PRODUCTION_PILOT_ACTIVATION_RESULT.json`.
 2. Hay **un solo dispositivo** en el piloto (`bc6022ef…`), por lo que no hay
    convivencia de clientes V7 y V8 dentro del restaurante piloto.
-3. Pendiente: observar 24–48 h (eventos sin crecimiento anómalo, cero
+3. **Venta real de prueba sincronizada** el 2026-11-27: 1 × Agua mineral 500 ml
+   (orden 112). Stock confirmado local 40 → 39 y remoto 40 → 39, operación V8
+   `sale` aplicada con evento `operation.applied` (seq 1), outbox `applied`,
+   movimiento local `confirmed` y sin `dead_letter`/`UNAUTHORIZED_PRICE`.
+   Antes de la venta se corrigieron tres fallos de arranque/puesta en marcha:
+   carga de `.env` antes de `server.js`, transporte `ws` para Node 20 en el
+   cliente Supabase y lectura de la BD activa desde `isEnabled()`. El intent
+   llevaba la clave local `invId`, rechazada por la nube; ahora el payload es
+   canónico y el mapeo local queda fuera de la operación.
+   Evidencia: `docs/V8_PRODUCTION_PILOT_TEST_SALE_RESULT.json`.
+4. Pendiente: observar 24–48 h (eventos sin crecimiento anómalo, cero
    `UNAUTHORIZED_PRICE`, vales offline dentro del límite).
-4. Solo después extender al resto por restaurantes, nunca a medias.
+5. Solo después extender al resto por restaurantes, nunca a medias.
 
 **Estado final de esta etapa:** G0, G1, G2, G3 y el encendido del piloto G4 están
 cerrados. La SQLite real del POS fue migrada y configurada contra `fxkxfid…`.
 El flag V8 está en `1` únicamente en esta instalación piloto; el resto sigue
 apagado. Los datos sintéticos siguen confinados al proyecto desechable.
+Queda únicamente el periodo de observación de 24–48 h del piloto.
