@@ -61,21 +61,23 @@ describe('UI de Venta', () => {
   });
 
   test('grilla uniforme, nombre de hasta 3 líneas y precio dorado alineado', () => {
-    expect(CSS_SRC).toContain('--card-h:340px');
+    expect(CSS_SRC).toContain('--card-h:380px');
     expect(CSS_SRC).toContain('height:var(--card-h)');
     expect(CSS_SRC).toContain('grid-template-columns:repeat(auto-fill,minmax(180px,1fr))');
     const nameRule = ruleContaining('.pos-item .name{', 'height:var(--name-h)');
     expect(nameRule).toContain('height:var(--name-h)');
     expect(nameRule).toContain('line-height:1.2');
-    expect(nameRule).toContain('font-size:1.0625rem');
+    expect(nameRule).toContain('font-size:1.25rem');
     expect(nameRule).toContain('font-weight:800');
     expect(nameRule).toContain('color:#fff!important');
     expect(nameRule).not.toContain('-webkit-line-clamp');
-    expect(VENTA_SRC).toContain('size>11');
+    expect(VENTA_SRC).toContain('size>12');
     const priceRule = ruleContaining('.pos-item .price{', 'height:var(--price-h)');
     expect(priceRule).toContain('height:var(--price-h)');
+    expect(priceRule).toContain('font-size:1.25rem');
     expect(priceRule).toContain('white-space:nowrap');
     expect(priceRule).toContain('color:var(--accent)!important');
+    expect(VENTA_SRC).toContain('size>11');
   });
 
   test('distribución responsive sin deformar tarjetas', () => {
@@ -89,17 +91,21 @@ describe('UI de Venta', () => {
     }
     expect(CSS_SRC).toContain('grid-template-columns:repeat(3,minmax(0,1fr))');
     expect(CSS_SRC).toContain('grid-template-columns:repeat(2,minmax(0,1fr))');
-    expect(CSS_SRC).toContain('--card-h:314px');
-    expect(CSS_SRC).toContain('--card-h:290px');
-    expect(CSS_SRC).toContain('--card-h:292px');
+    expect(CSS_SRC).toContain('--card-h:348px');
+    expect(CSS_SRC).toContain('--card-h:324px');
+    expect(CSS_SRC).toContain('--card-h:320px');
+    expect(CSS_SRC).toContain('--card-h:322px');
     expect(CSS_SRC).toContain('--media-h:150px');
     expect(CSS_SRC).toContain('--media-h:132px');
     expect(CSS_SRC).toContain('--media-h:116px');
     expect(CSS_SRC).toContain('--media-h:112px');
     expect(CSS_SRC).toContain('--media-h:104px');
-    expect(CSS_SRC).toContain('--name-h:84px');
-    expect(CSS_SRC).toContain('--name-h:78px');
-    expect(CSS_SRC).toContain('--name-h:74px');
-    expect(CSS_SRC).toContain('--name-h:92px');
+    expect(CSS_SRC).toContain('--name-h:112px');
+    expect(CSS_SRC).toContain('--name-h:104px');
+    expect(CSS_SRC).toContain('--name-h:100px');
+    expect(CSS_SRC).toContain('--name-h:116px');
+    expect(CSS_SRC).toContain('--price-h:46px');
+    expect(CSS_SRC).toContain('--price-h:42px');
+    expect(CSS_SRC).toContain('--price-h:40px');
   });
 });

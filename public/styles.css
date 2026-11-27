@@ -490,10 +490,10 @@ body:has(.pos-layout){
 
 /* PRODUCT CARDS: una sola grilla, medidas fijas por resolución */
 .pos-items{
-  --card-h:340px;
+  --card-h:380px;
   --media-h:150px;
-  --name-h:84px;
-  --price-h:38px;
+  --name-h:112px;
+  --price-h:46px;
   --meta-h:16px;
   display:grid;
   grid-template-columns:repeat(auto-fill,minmax(180px,1fr));
@@ -575,7 +575,7 @@ body:has(.pos-layout){
   width:100%;
   display:block;
   margin:8px 0 0;
-  font-size:1.0625rem;
+  font-size:1.25rem;
   line-height:1.2;
   font-weight:800;
   color:#fff!important;
@@ -599,7 +599,7 @@ body:has(.pos-layout){
   gap:1px;
   margin:6px 0 0;
   font-family:"JetBrains Mono",ui-monospace,monospace;
-  font-size:1rem;
+  font-size:1.25rem;
   font-weight:800;
   line-height:1.1;
   letter-spacing:-.02em;
@@ -671,51 +671,51 @@ body:has(.pos-layout){
 
 @media (max-width:1200px){
   .pos-items{
-    --card-h:314px;
+    --card-h:348px;
     --media-h:132px;
-    --name-h:78px;
-    --price-h:34px;
+    --name-h:104px;
+    --price-h:42px;
     --meta-h:14px;
     grid-template-columns:repeat(auto-fill,minmax(160px,1fr));
     gap:14px;
     padding:14px;
   }
-  .pos-item .name{font-size:1rem}
-  .pos-item .price{font-size:.9375rem}
+  .pos-item .name{font-size:1.1875rem}
+  .pos-item .price{font-size:1.1875rem}
 }
 @media (max-width:900px){
   .pos-items{
-    --card-h:290px;
+    --card-h:324px;
     --media-h:116px;
-    --name-h:74px;
-    --price-h:32px;
+    --name-h:100px;
+    --price-h:40px;
     --meta-h:12px;
     grid-template-columns:repeat(3,minmax(0,1fr));
     gap:12px;
     padding:12px;
   }
-  .pos-item .name{font-size:.9375rem}
-  .pos-item .price{font-size:.875rem}
+  .pos-item .name{font-size:1.125rem}
+  .pos-item .price{font-size:1.125rem}
 }
 @media (max-width:768px){
   .pos-items{
-    --card-h:290px;
+    --card-h:320px;
     --media-h:112px;
-    --name-h:74px;
-    --price-h:32px;
+    --name-h:100px;
+    --price-h:40px;
     --meta-h:12px;
     grid-template-columns:repeat(3,minmax(0,1fr));
     gap:12px;
     padding:12px;
   }
-  .pos-item .name{font-size:.9375rem}
-  .pos-item .price{font-size:.875rem}
+  .pos-item .name{font-size:1.125rem}
+  .pos-item .price{font-size:1.125rem}
 }
 @media (max-width:520px){
   .pos-items{
-    --card-h:292px;
+    --card-h:322px;
     --media-h:104px;
-    --name-h:92px;
+    --name-h:116px;
     grid-template-columns:repeat(2,minmax(0,1fr));
     gap:10px;
     padding:10px;

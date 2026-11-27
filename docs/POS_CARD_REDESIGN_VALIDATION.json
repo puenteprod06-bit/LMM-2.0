@@ -11,7 +11,7 @@
       "imagen cuadrada 400x400",
       "imagen por defecto 736x550",
       "nombre de 79 caracteres",
-      "precio de 16 caracteres",
+      "precio de 16 caracteres ($ 123.456.789,00)",
       "producto en promoción con precio original tachado"
     ],
     "decision": "El propietario confirmó object-fit: cover para que la imagen llene todo el cuadro; en proporciones extremas hay recorte, sin deformación."
@@ -20,12 +20,13 @@
     {
       "viewport": "1600x900",
       "columnasPorFila": [4],
-      "tamanoUnicoDeCard": "197x340",
+      "tamanoUnicoDeCard": "197x380",
       "altoContenedorDeImagen": 150,
       "objectFit": "cover",
       "imagenLlenaElCuadro": true,
       "imagenesNaturales": ["800x120", "120x800", "736x550", "400x400"],
-      "fuenteNombre": "17px (nombre largo: 14.5px)",
+      "fuenteNombre": "20px (nombre largo: 18.5px)",
+      "fuentePrecio": "20px (precio largo: 18.5px)",
       "nombreCortado": false,
       "precioCortado": false,
       "desbordeDeCard": "0x0"
@@ -33,12 +34,13 @@
     {
       "viewport": "1024x768",
       "columnasPorFila": [2, 2],
-      "tamanoUnicoDeCard": "199x314",
+      "tamanoUnicoDeCard": "199x348",
       "altoContenedorDeImagen": 132,
       "objectFit": "cover",
       "imagenLlenaElCuadro": true,
       "imagenesNaturales": ["800x120", "120x800", "736x550", "400x400"],
-      "fuenteNombre": "16px (nombre largo: 15px)",
+      "fuenteNombre": "19px (nombre largo: 17.5px)",
+      "fuentePrecio": "19px (precio largo: 18.5px)",
       "nombreCortado": false,
       "precioCortado": false,
       "desbordeDeCard": "0x0"
@@ -46,12 +48,13 @@
     {
       "viewport": "768x900",
       "columnasPorFila": [3, 1],
-      "tamanoUnicoDeCard": "221x290",
+      "tamanoUnicoDeCard": "221x320",
       "altoContenedorDeImagen": 112,
       "objectFit": "cover",
       "imagenLlenaElCuadro": true,
       "imagenesNaturales": ["800x120", "120x800", "736x550", "400x400"],
-      "fuenteNombre": "15px (nombre largo: 15px)",
+      "fuenteNombre": "18px (nombre largo: 16.5px)",
+      "fuentePrecio": "18px (precio largo: 18px)",
       "nombreCortado": false,
       "precioCortado": false,
       "desbordeDeCard": "0x0"
@@ -59,12 +62,13 @@
     {
       "viewport": "390x844",
       "columnasPorFila": [2, 2],
-      "tamanoUnicoDeCard": "152x292",
+      "tamanoUnicoDeCard": "152x322",
       "altoContenedorDeImagen": 104,
       "objectFit": "cover",
       "imagenLlenaElCuadro": true,
       "imagenesNaturales": ["800x120", "120x800", "736x550", "400x400"],
-      "fuenteNombre": "15px (nombre largo: 14.5px)",
+      "fuenteNombre": "18px (nombre largo: 16px)",
+      "fuentePrecio": "18px (precio largo: 14px)",
       "nombreCortado": false,
       "precioCortado": false,
       "desbordeDeCard": "0x0"
