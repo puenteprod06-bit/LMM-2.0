@@ -1,0 +1,85 @@
+{
+  "provisioned_at": "2026-11-27T04:12:58.879Z",
+  "command": "provision-production-pilot",
+  "project_ref": "fxkxfidvdzpqqsmktxoq",
+  "flag": "LMM_INVENTORY_SYNC_V8 NO tocado por este script",
+  "restaurant_id": "48631601-eee3-423f-9ccc-e258dfa83bca",
+  "cloud_restaurant_id": "96fbd1a2-1e33-4940-82c3-e44c30eaed97",
+  "device_id": "bc6022ef-ddcb-460e-b803-19158d843a58",
+  "created": {
+    "restaurant": false,
+    "owner_user": false,
+    "device_user": false,
+    "device": false,
+    "inventory_rows": 0
+  },
+  "remote_inventory": [
+    {
+      "inventory_uuid": "00418986-2e11-4ae5-a1f8-cf8f9b9ab3f0",
+      "name": "Queso cheddar",
+      "stock": "0.000",
+      "version": "1"
+    },
+    {
+      "inventory_uuid": "2c1a15b9-7a7a-4e63-8300-c44df26a23c6",
+      "name": "Dulce de leche",
+      "stock": "1300.000",
+      "version": "1"
+    },
+    {
+      "inventory_uuid": "4b68dcdc-52f0-4974-9877-ad15b2634cba",
+      "name": "Agua mineral 500ml",
+      "stock": "40.000",
+      "version": "1"
+    },
+    {
+      "inventory_uuid": "7aa81a2f-e852-47f1-8d50-2ed81999049e",
+      "name": "Coca Cola 500ml",
+      "stock": "55.000",
+      "version": "1"
+    },
+    {
+      "inventory_uuid": "7ce3c850-4fde-4945-bb48-970b41bcf03f",
+      "name": "Pan brioche",
+      "stock": "0.000",
+      "version": "1"
+    },
+    {
+      "inventory_uuid": "9b6b10a8-4c9e-403e-9edd-489a60f41d7b",
+      "name": "Papas",
+      "stock": "12600.000",
+      "version": "1"
+    },
+    {
+      "inventory_uuid": "a1dfbd46-d7c6-4df7-945b-41b1931ea8b1",
+      "name": "Fideos spaghetti",
+      "stock": "2600.000",
+      "version": "1"
+    },
+    {
+      "inventory_uuid": "b4f8b819-b184-40de-848a-7e77779ace6a",
+      "name": "Cerveza Quilmes 1L",
+      "stock": "33.000",
+      "version": "1"
+    },
+    {
+      "inventory_uuid": "b99c0572-6277-4d0a-8e06-693460ee9159",
+      "name": "Cerveza Stella 1L",
+      "stock": "16.000",
+      "version": "1"
+    },
+    {
+      "inventory_uuid": "f77dfd6f-4f0a-4d5f-be42-c90e806bca9d",
+      "name": "Carne picada",
+      "stock": "0.000",
+      "version": "1"
+    }
+  ],
+  "credentials_written_to": ".env (ignorado por Git; valores no impresos)",
+  "rpc_verification": {
+    "login_http_status": 200,
+    "snapshot_http_status": 200,
+    "inventory_rows": 10,
+    "last_event_seq": 0
+  }
+}

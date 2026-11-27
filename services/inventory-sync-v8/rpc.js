@@ -13,6 +13,8 @@
  *
  * Todas las funciones devuelven { data } o { error: { status, code, message, network } }.
  * Nunca lanza: un fallo de red o de Supabase se normaliza a error.network / error.status.
+ * Las RPC exigen sesión `authenticated`; si SUPABASE_AUTH_EMAIL/SUPABASE_AUTH_PASSWORD
+ * están en .env, el cliente inicia sesión y renueva el token antes de cada llamada.
  * Si no hay cliente Supabase (no configurado), todas las llamadas devuelven error de red
  * y el motor se queda en modo offline sin romper la venta local.
  */
@@ -77,12 +79,45 @@ function createRpc({
     return c;
   }
 
+  /**
+   * Las RPC V8 exigen `authenticated` (auth.uid()), no la clave anónima.
+   * Si hay credenciales de dispositivo en el entorno, se usa una sesión en
+   * memoria y se renueva antes de expirar. Sin esas variables el comportamiento
+   * sigue siendo el histórico (llamada anónima; las RPC responderán PT401).
+   */
+  async function ensureAuth(force = false) {
+    const email = process.env.SUPABASE_AUTH_EMAIL;
+    const password = process.env.SUPABASE_AUTH_PASSWORD;
+    if (!email || !password) return;
+    const c = client();
+    if (!c.auth || typeof c.auth.getSession !== 'function' ||
+        typeof c.auth.signInWithPassword !== 'function') return;
+    try {
+      if (!force) {
+        const { data } = await c.auth.getSession();
+        const s = data && data.session;
+        if (s && s.access_token &&
+            (!s.expires_at || s.expires_at > Math.floor(Date.now() / 1000) + 30)) return;
+      }
+      const { error } = await c.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+    } catch (err) {
+      log.warn && log.warn('[INV-V8][RPC] no se pudo autenticar el dispositivo:', err.message);
+      throw err;
+    }
+  }
+
+  async function callRpc(name, args) {
+    const c = client();
+    await ensureAuth();
+    const { data, error } = await c.rpc(name, args);
+    if (error) return { error: normalizeError(error) };
+    return { data: data || null };
+  }
+
   async function applyOperation(envelope) {
     try {
-      const c = client();
-      const { data, error } = await c.rpc('lmm_apply_operation', { p_request: envelope });
-      if (error) return { error: normalizeError(error) };
-      return { data: data || null };
+      return await callRpc('lmm_apply_operation', { p_request: envelope });
     } catch (err) {
       return { error: normalizeError(err) };
     }
@@ -90,15 +125,12 @@ function createRpc({
 
   async function getEvents({ fromSeq, limit = 200, ackSeq } = {}) {
     try {
-      const c = client();
-      const { data, error } = await c.rpc('lmm_get_events', {
+      return await callRpc('lmm_get_events', {
         p_device_id: deviceId,
         p_from_seq: Number(fromSeq || 0),
         p_limit: Number(limit || 200),
         p_ack_seq: ackSeq != null ? Number(ackSeq) : null,
       });
-      if (error) return { error: normalizeError(error) };
-      return { data: data || null };
     } catch (err) {
       return { error: normalizeError(err) };
     }
@@ -106,27 +138,25 @@ function createRpc({
 
   async function getSnapshot() {
     try {
-      const c = client();
-      const { data, error } = await c.rpc('lmm_get_snapshot', { p_device_id: deviceId });
-      if (error) return { error: normalizeError(error) };
-      return { data: data || null };
+      return await callRpc('lmm_get_snapshot', { p_device_id: deviceId });
     } catch (err) {
       return { error: normalizeError(err) };
     }
   }
 
   async function refreshSession() {
-    // No hay sesión persistente; la clave anónima es suficiente. No-op exitoso.
-    return { ok: true };
+    try {
+      await ensureAuth(true);
+      return { ok: true };
+    } catch (err) {
+      return { error: normalizeError(err) };
+    }
   }
 
   // ── Autorizaciones / vales (V8 §13, política de vales offline) ──
   async function issueAuthorization(request) {
     try {
-      const c = client();
-      const { data, error } = await c.rpc('lmm_issue_authorization', { p_request: request });
-      if (error) return { error: normalizeError(error) };
-      return { data: data || null };
+      return await callRpc('lmm_issue_authorization', { p_request: request });
     } catch (err) {
       return { error: normalizeError(err) };
     }
@@ -134,10 +164,7 @@ function createRpc({
 
   async function enrollDevice(code) {
     try {
-      const c = client();
-      const { data, error } = await c.rpc('lmm_enroll_device', { p_code: code, p_device_id: deviceId });
-      if (error) return { error: normalizeError(error) };
-      return { data: data || null };
+      return await callRpc('lmm_enroll_device', { p_code: code, p_device_id: deviceId });
     } catch (err) {
       return { error: normalizeError(err) };
     }
@@ -145,10 +172,7 @@ function createRpc({
 
   async function revokeDevice(restaurant_id) {
     try {
-      const c = client();
-      const { data, error } = await c.rpc('lmm_revoke_device', { p_restaurant: restaurant_id, p_device_id: deviceId });
-      if (error) return { error: normalizeError(error) };
-      return { data: data || null };
+      return await callRpc('lmm_revoke_device', { p_restaurant: restaurant_id, p_device_id: deviceId });
     } catch (err) {
       return { error: normalizeError(err) };
     }

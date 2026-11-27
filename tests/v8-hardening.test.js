@@ -361,6 +361,38 @@ describe('RPC y ciclo de vida del motor V8', () => {
     expect(events.error.network).toBe(false);
   });
 
+  test('createRpc renueva la sesión autenticada del dispositivo piloto', async () => {
+    let session = null;
+    const logins = [];
+    const supabase = {
+      auth: {
+        getSession: async () => ({ data: { session } }),
+        signInWithPassword: async ({ email, password }) => {
+          logins.push({ email, password });
+          session = { access_token: 'token', expires_at: Math.floor(Date.now() / 1000) + 3600 };
+          return { error: null };
+        },
+      },
+      rpc: async () => ({ data: { status: 'ok' } }),
+    };
+    const prevEmail = process.env.SUPABASE_AUTH_EMAIL;
+    const prevPassword = process.env.SUPABASE_AUTH_PASSWORD;
+    process.env.SUPABASE_AUTH_EMAIL = 'pilot@example.invalid';
+    process.env.SUPABASE_AUTH_PASSWORD = 'secreto-de-prueba';
+    try {
+      const rpc = v8.createRpc({ supabase, deviceId: 'dev-1', restaurantId: 'rest-1' });
+      expect((await rpc.getSnapshot()).data.status).toBe('ok');
+      expect((await rpc.getSnapshot()).data.status).toBe('ok');
+      expect(logins).toHaveLength(1);
+      expect(logins[0].email).toBe('pilot@example.invalid');
+    } finally {
+      if (prevEmail === undefined) delete process.env.SUPABASE_AUTH_EMAIL;
+      else process.env.SUPABASE_AUTH_EMAIL = prevEmail;
+      if (prevPassword === undefined) delete process.env.SUPABASE_AUTH_PASSWORD;
+      else process.env.SUPABASE_AUTH_PASSWORD = prevPassword;
+    }
+  });
+
   test('startV8Engine / stopV8Engine respetan la condición única', () => {
     const sync = require('../sync-engine');
     const db = openDb();

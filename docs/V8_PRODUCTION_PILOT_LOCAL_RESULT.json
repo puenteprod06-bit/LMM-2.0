@@ -1,0 +1,37 @@
+{
+  "applied_at": "2026-11-27T03:58:01.689Z",
+  "command": "activate-pilot-local",
+  "flag": "LMM_INVENTORY_SYNC_V8 NO modificado por este script (sigue 0 hasta activación explícita)",
+  "backup_verified": "backups/g1-20261126/database.sqlite",
+  "verification": {
+    "passed": 8,
+    "failed": 0
+  },
+  "migration": {
+    "run_id": 1,
+    "status": "applied",
+    "counts": {
+      "products": 10,
+      "legacy_movements_marked": 0,
+      "queue_quarantined": 130,
+      "queue_rows_deleted": 0,
+      "queue_total_before": 794,
+      "queue_total_after": 794
+    }
+  },
+  "pilot_ids": {
+    "restaurant_id": "48631601-eee3-423f-9ccc-e258dfa83bca",
+    "cloud_restaurant_id": "96fbd1a2-1e33-4940-82c3-e44c30eaed97"
+  },
+  "config_before": {
+    "cloud_restaurant_id": "27990c98-a96f-46eb-957d-99f762a2f2fa",
+    "supabase_url": "https://vzwpbviqgzebehavoori.supabase.co"
+  },
+  "config_after": {
+    "cloud_restaurant_id": "96fbd1a2-1e33-4940-82c3-e44c30eaed97",
+    "supabase_url": "https://fxkxfidvdzpqqsmktxoq.supabase.co",
+    "supabase_anon_key_updated": true
+  },
+  "pos_sqlite_touched": true,
+  "supabase_touched": false
+}

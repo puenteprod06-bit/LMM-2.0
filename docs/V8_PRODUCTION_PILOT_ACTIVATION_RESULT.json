@@ -1,0 +1,29 @@
+{
+  "activated_at": "2026-11-27T04:13:37.836Z",
+  "command": "activate-production-pilot-flag",
+  "scope": "SOLO el .env local de esta instalación; .env.runtime permanece con el flag apagado",
+  "flag": {
+    "name": "LMM_INVENTORY_SYNC_V8",
+    "value": "1",
+    "before": [
+      "flag_off"
+    ],
+    "after": []
+  },
+  "pilot": {
+    "restaurant_id": "48631601-eee3-423f-9ccc-e258dfa83bca",
+    "cloud_restaurant_id": "96fbd1a2-1e33-4940-82c3-e44c30eaed97",
+    "device_id": "bc6022ef-ddcb-460e-b803-19158d843a58"
+  },
+  "verification": {
+    "migration_inputs": "8/8",
+    "snapshot_http": "autenticado",
+    "inventory_rows": 10,
+    "last_event_seq": 0
+  },
+  "files": {
+    "modified": ".env (ignorado por Git)",
+    "runtime_template_untouched": true
+  },
+  "supabase_touched": false
+}

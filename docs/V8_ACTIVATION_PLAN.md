@@ -1,15 +1,16 @@
 # Plan de activación por etapas V8 / V8.1
 
-Estado: **flag `LMM_INVENTORY_SYNC_V8=0`**. Este documento describe las compuertas
-que deben cerrarse antes de encenderlo. No sustituye la autorización explícita
-del propietario en cada etapa.
+Estado: **piloto V8 encendido solo en la instalación local** (`LMM_INVENTORY_SYNC_V8=1`
+en `.env`, ignorado por Git). El resto de instalaciones y la plantilla
+`.env.runtime.example` siguen con el flag apagado. Este documento registra las
+compuertas cerradas y lo que aún falta para extender el piloto.
 
 ## Ya verificado (no se repite)
 
 | Prueba | Resultado |
 |---|---|
 | SQL en PGlite (sin red) | 14/14 |
-| Suite local (sin BD real) | 20 suites / 386 pruebas |
+| Suite local (sin BD real) | 21 suites / 389 pruebas |
 | Supabase hosted desechable | 6/6 |
 | Concurrencia física (2 sesiones PostgREST) | 3/3 |
 | Migración local con triggers legacy reales | 6/6 pruebas |
@@ -29,36 +30,27 @@ del propietario en cada etapa.
    cerrado: no hay esquema heredado que migrar. Salidas:
    `docs/PRODUCTION_SYNC_SCHEMA.sql` y `docs/PRODUCTION_SYNC_SCHEMA.json`.
 
-La SQLite del POS todavía apunta al proyecto desechable
-(`vzwpbviq…`, `cloud_restaurant_id=27990c98-…`). Antes de G3/G4 debe apuntar al
-proyecto indicado y al `cloud_restaurant_id` correcto.
+La SQLite del POS fue actualizada al proyecto productivo
+(`fxkxfid…`) y al `cloud_restaurant_id` del piloto
+`96fbd1a2-1e33-4940-82c3-e44c30eaed97`. Evidencia:
+`docs/V8_PRODUCTION_PILOT_LOCAL_RESULT.json`.
 
-### G1 — Backup verificado y decisiones de saldo — ⚠️ PREPARADO, BLOQUEANTE
+### G1 — Backup verificado y decisiones de saldo — ✅ CERRADO
 
-1. Se hizo una **copia** de la SQLite del POS en
-   `backups/g1-20261126/database.sqlite` (ignorada por Git), `sha256`
-   `aebd7dd3…` e `integrity_check=ok`. La original no se abrió para escribir.
-2. Se generó `docs/V8_BALANCE_DECISIONS.json` con **10 propuestas** de saldo.
-   Todavía no son decisiones: `owner_confirmed=false`, los `reason` dicen
-   `PROPUESTA`, y faltan `restaurant_id` / `cloud_restaurant_id`.
-3. Verificación actual:
-   ```
-   node scripts/verify-v8-migration-inputs.js docs/V8_BALANCE_DECISIONS.json
-   ```
-   Resultado `docs/V8_MIGRATION_INPUTS_RESULT.json`: **5 PASS / 3 FAIL**.
-   Los fallos son exactamente las compuertas que faltan.
+1. Copia verificada: `backups/g1-20261126/database.sqlite` (ignorada por Git),
+   `sha256 aebd7dd3…`, `integrity_check=ok`.
+2. El propietario confirmó usar los **stocks locales** como saldo inicial y
+   autorizó generar los UUID del piloto. `docs/V8_BALANCE_DECISIONS.json` quedó
+   con `owner_confirmed=true`, 10 razones confirmadas (sin `PROPUESTA`) e IDs:
+   `restaurant_id=48631601-eee3-423f-9ccc-e258dfa83bca`,
+   `cloud_restaurant_id=96fbd1a2-1e33-4940-82c3-e44c30eaed97`
+   (`docs/V8_PILOT_IDS.json`).
+3. `node scripts/verify-v8-migration-inputs.js docs/V8_BALANCE_DECISIONS.json`
+   → **8/8 PASS** (`docs/V8_MIGRATION_INPUTS_RESULT.json`).
 
-**Para cerrar G1 el propietario debe:**
-
-- revisar los 10 `decided_initial_stock` (el destino no tiene saldo remoto: las
-  propuestas conservan el stock local; Papas/Fideos/Dulce parecen gramos);
-- poner `owner_confirmed=true` y quitar los textos `PROPUESTA` de `reason`;
-- completar `restaurant_id` y `cloud_restaurant_id`;
-- repetir el comando de verificación hasta 8/8;
-- generar el input de la CLI:
-  ```
-  node scripts/build-v8-migration-input.js --out docs/V8_MIGRATION_CLI_INPUT.json
-  ```
+Input generado con `node scripts/build-v8-migration-input.js --out
+docs/V8_MIGRATION_CLI_INPUT.json`. Los productos Papas/Fideos/Dulce conservan
+sus valores en gramos, tal como fueron confirmados.
 
 ### G2 — Ensayo de migración sobre copias — ✅ EJECUTADO (confirmación simulada)
 
@@ -86,6 +78,11 @@ en `sync_queue` durante `apply`/`rollback`. Ahora ambas funciones silencian
 `_sync_flag.applying_remote` dentro de la transacción y verifican que el total
 de la cola no cambie. Evidencia: `docs/V8_G1_G2_REHEARSAL_RESULT.json`.
 
+Tras la confirmación real se aplicó la migración a la SQLite del POS con
+`node scripts/activate-v8-pilot-local.js --confirm-production-activation`:
+`run_id=1`, 10 productos, 130 cuarentenas, **0 filas borradas**, `sync_queue`
+794 → 794 (`docs/V8_PRODUCTION_PILOT_LOCAL_RESULT.json`).
+
 ### G3 — Staging y esquema productivo
 
 0. **Staging desechable (`vzwpbviq…`)**: se aplicó el esquema (15 tablas, 31
@@ -98,30 +95,41 @@ de la cola no cambie. Evidencia: `docs/V8_G1_G2_REHEARSAL_RESULT.json`.
    Se ejecutó `node scripts/apply-v8-production.js --confirm-production`.
    Resultado: **15 tablas, 31 funciones, RLS en `app_config`**. Verificación en
    sesión `TRANSACTION READ ONLY`: 15 tablas, solo `app_config` con 5 valores
-   por defecto de la propia migración; ningún dato del POS ni usuario sembrado.
+   por defecto de la propia migración; en ese momento no había datos del POS ni
+   usuarios sembrados (el piloto se aprovisionó después, ver punto 4).
    Evidencia: `docs/V8_PRODUCTION_SCHEMA_RESULT.json`.
-2. `LMM_INVENTORY_SYNC_V8` **sigue en 0**. No se tocó la SQLite real del POS.
+2. La SQLite del POS quedó apuntando a producción y al piloto; ver G1/G2.
 3. **Smoke sintético en staging: 6/6 PASS** el 2026-11-27 con
    `node scripts/validate-v8-supabase.js all --confirm-isolated
    --reset-throwaway --out docs/V8_STAGING_SMOKE_RESULT.json`: conectividad,
    C-01, A-01, R-03, C-03, A-03/A-04 y rechazo `anon`. El proyecto desechable
    queda con datos sintéticos creados por el propio validador; nada de producción.
-4. Pendiente: verificar que la app apunte al proyecto correcto y, sobre una
-   **copia** de SQLite en staging, probar C-01/A-01/C-03/A-03 con el flag en 1.
+4. **Identidad y catálogo del piloto aprovisionados en producción**: se crearon
+   usuario owner, usuario dispositivo, membresía, dispositivo y los 10 productos
+   con los saldos confirmados. Las RPC exigen `authenticated`, por lo que
+   `services/inventory-sync-v8/rpc.js` ahora inicia/renueva sesión con
+   `SUPABASE_AUTH_EMAIL`/`SUPABASE_AUTH_PASSWORD` desde `.env`. Verificación real:
+   login Auth + `lmm_get_snapshot` con 10 productos y `lmm_get_events` OK.
+   El aprovisionador es idempotente: en la corrida final ya existían las filas,
+   por eso `created.*` es `false` y `inventory_rows=0` en la evidencia.
+   Evidencia: `docs/V8_PRODUCTION_PILOT_AUTH_RESULT.json`.
 
-**Bloqueante:** G1 real (saldos/IDs) y la prueba de la app sobre copia con flag
-en 1. No se ha activado V8 en producción.
+**Sin bloqueantes para el piloto.** No se ha extendido V8 a otros restaurantes.
 
 ### G4 — Piloto y resto (requiere autorización explícita)
 
-1. Elegir **un restaurante piloto** y migrar **todos** sus dispositivos a la vez.
-   Inventario no admite convivencia de clientes V7 y V8.
-2. Observar 24–48 h: cola de eventos sin crecimiento anómalo, cero
-   `UNAUTHORIZED_PRICE`, vales offline dentro del límite.
-3. Solo después extender al resto por restaurantes, nunca a medias.
+1. **Piloto encendido** el 2026-11-27 en esta instalación con
+   `node scripts/activate-v8-pilot-flag.js --confirm-production-activation`.
+   Antes: `flag_off`. Después: sin razones de bloqueo. `LMM_INVENTORY_SYNC_V8=1`
+   solo en `.env` local; `.env.runtime.example` sigue en `0`.
+   Evidencia: `docs/V8_PRODUCTION_PILOT_ACTIVATION_RESULT.json`.
+2. Hay **un solo dispositivo** en el piloto (`bc6022ef…`), por lo que no hay
+   convivencia de clientes V7 y V8 dentro del restaurante piloto.
+3. Pendiente: observar 24–48 h (eventos sin crecimiento anómalo, cero
+   `UNAUTHORIZED_PRICE`, vales offline dentro del límite).
+4. Solo después extender al resto por restaurantes, nunca a medias.
 
-**En este momento G0, G2, el esquema SQL de G3 en producción y el smoke
-sintético en staging están listos; G1 sigue bloqueante y G4 no se ha
-ejecutado.** El flag sigue en `0`; no se ha conectado a la SQLite real del POS
-para escribir y no se activó V8 en producción. Los únicos datos sembrados son
-sintéticos y están en el proyecto desechable.
+**Estado final de esta etapa:** G0, G1, G2, G3 y el encendido del piloto G4 están
+cerrados. La SQLite real del POS fue migrada y configurada contra `fxkxfid…`.
+El flag V8 está en `1` únicamente en esta instalación piloto; el resto sigue
+apagado. Los datos sintéticos siguen confinados al proyecto desechable.

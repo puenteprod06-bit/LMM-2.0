@@ -1,5 +1,5 @@
 {
-  "_instrucciones": "BORRADOR generado desde una copia verificada. Revisar y confirmar. NO contiene secretos. Poner owner_confirmed=true SOLO cuando el propietario acepte todos los decided_initial_stock.",
+  "_instrucciones": "CONFIRMADO por el propietario el 2026-11-27: usar stocks locales como saldo inicial. IDs generados para el piloto.",
   "backup": {
     "copy_path": "C:\\Users\\agust\\OneDrive\\Desktop\\PROYECTOS\\La_Mente_Maestra_reparado\\mente-maestra-reparado\\backups\\g1-20261126\\database.sqlite",
     "sha256": "aebd7dd3bc61ca92b34310c4cc8214019ebe331520d5a1823be8c4906ba69459",
@@ -23,9 +23,9 @@
       "accion": "cuarentena sin borrado (v8-migrate-local.js apply)"
     }
   },
-  "owner_confirmed": false,
-  "restaurant_id": "",
-  "cloud_restaurant_id": "",
+  "owner_confirmed": true,
+  "restaurant_id": "48631601-eee3-423f-9ccc-e258dfa83bca",
+  "cloud_restaurant_id": "96fbd1a2-1e33-4940-82c3-e44c30eaed97",
   "products": [
     {
       "product_key": "f77dfd6f-4f0a-4d5f-be42-c90e806bca9d",
@@ -34,7 +34,7 @@
       "remote_stock": "",
       "decided_initial_stock": 0,
       "decision": "local",
-      "reason": "PROPUESTA (no confirmada): sin saldo remoto heredado; conservar 0 del POS"
+      "reason": "Saldo local aceptado por el propietario el 2026-11-27"
     },
     {
       "product_key": "7ce3c850-4fde-4945-bb48-970b41bcf03f",
@@ -43,7 +43,7 @@
       "remote_stock": "",
       "decided_initial_stock": 0,
       "decision": "local",
-      "reason": "PROPUESTA (no confirmada): sin saldo remoto heredado; conservar 0 del POS"
+      "reason": "Saldo local aceptado por el propietario el 2026-11-27"
     },
     {
       "product_key": "00418986-2e11-4ae5-a1f8-cf8f9b9ab3f0",
@@ -52,7 +52,7 @@
       "remote_stock": "",
       "decided_initial_stock": 0,
       "decision": "local",
-      "reason": "PROPUESTA (no confirmada): sin saldo remoto heredado; conservar 0 del POS"
+      "reason": "Saldo local aceptado por el propietario el 2026-11-27"
     },
     {
       "product_key": "b4f8b819-b184-40de-848a-7e77779ace6a",
@@ -61,7 +61,7 @@
       "remote_stock": "",
       "decided_initial_stock": 33,
       "decision": "local",
-      "reason": "PROPUESTA (no confirmada): sin saldo remoto heredado; conservar 33 del POS"
+      "reason": "Saldo local aceptado por el propietario el 2026-11-27"
     },
     {
       "product_key": "b99c0572-6277-4d0a-8e06-693460ee9159",
@@ -70,7 +70,7 @@
       "remote_stock": "",
       "decided_initial_stock": 16,
       "decision": "local",
-      "reason": "PROPUESTA (no confirmada): sin saldo remoto heredado; conservar 16 del POS"
+      "reason": "Saldo local aceptado por el propietario el 2026-11-27"
     },
     {
       "product_key": "7aa81a2f-e852-47f1-8d50-2ed81999049e",
@@ -79,7 +79,7 @@
       "remote_stock": "",
       "decided_initial_stock": 55,
       "decision": "local",
-      "reason": "PROPUESTA (no confirmada): sin saldo remoto heredado; conservar 55 del POS"
+      "reason": "Saldo local aceptado por el propietario el 2026-11-27"
     },
     {
       "product_key": "4b68dcdc-52f0-4974-9877-ad15b2634cba",
@@ -88,7 +88,7 @@
       "remote_stock": "",
       "decided_initial_stock": 40,
       "decision": "local",
-      "reason": "PROPUESTA (no confirmada): sin saldo remoto heredado; conservar 40 del POS"
+      "reason": "Saldo local aceptado por el propietario el 2026-11-27"
     },
     {
       "product_key": "9b6b10a8-4c9e-403e-9edd-489a60f41d7b",
@@ -97,7 +97,7 @@
       "remote_stock": "",
       "decided_initial_stock": 12600,
       "decision": "local",
-      "reason": "PROPUESTA (no confirmada): sin saldo remoto heredado; conservar 12600 del POS (unidad legacy, probablemente gramos)"
+      "reason": "Saldo local aceptado por el propietario el 2026-11-27"
     },
     {
       "product_key": "a1dfbd46-d7c6-4df7-945b-41b1931ea8b1",
@@ -106,7 +106,7 @@
       "remote_stock": "",
       "decided_initial_stock": 2600,
       "decision": "local",
-      "reason": "PROPUESTA (no confirmada): sin saldo remoto heredado; conservar 2600 del POS (unidad legacy, probablemente gramos)"
+      "reason": "Saldo local aceptado por el propietario el 2026-11-27"
     },
     {
       "product_key": "2c1a15b9-7a7a-4e63-8300-c44df26a23c6",
@@ -115,7 +115,7 @@
       "remote_stock": "",
       "decided_initial_stock": 1300,
       "decision": "local",
-      "reason": "PROPUESTA (no confirmada): sin saldo remoto heredado; conservar 1300 del POS (unidad legacy, probablemente gramos)"
+      "reason": "Saldo local aceptado por el propietario el 2026-11-27"
     }
   ]
 }

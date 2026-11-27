@@ -1,0 +1,19 @@
+{
+  "generated_at": "2026-11-27T03:57:25.778Z",
+  "source_decisions": "docs/V8_BALANCE_DECISIONS.json",
+  "remoteBalances": {},
+  "deviceReports": [],
+  "decisions": {
+    "f77dfd6f-4f0a-4d5f-be42-c90e806bca9d": 0,
+    "7ce3c850-4fde-4945-bb48-970b41bcf03f": 0,
+    "00418986-2e11-4ae5-a1f8-cf8f9b9ab3f0": 0,
+    "b4f8b819-b184-40de-848a-7e77779ace6a": 33,
+    "b99c0572-6277-4d0a-8e06-693460ee9159": 16,
+    "7aa81a2f-e852-47f1-8d50-2ed81999049e": 55,
+    "4b68dcdc-52f0-4974-9877-ad15b2634cba": 40,
+    "9b6b10a8-4c9e-403e-9edd-489a60f41d7b": 12600,
+    "a1dfbd46-d7c6-4df7-945b-41b1931ea8b1": 2600,
+    "2c1a15b9-7a7a-4e63-8300-c44df26a23c6": 1300
+  },
+  "notes": "Saldos aceptados explícitamente por el propietario. Sin remoto heredado (G0: 0 tablas sync_*)."
+}
