@@ -91,6 +91,7 @@ const TABLE_DEFINITIONS = [
     paidAt         INTEGER,
     tableNumber    INTEGER,
     paymentStatus  TEXT    DEFAULT 'pending',
+    groupKey       TEXT,
     deleted        INTEGER DEFAULT 0
   )`,
 
@@ -104,6 +105,7 @@ const TABLE_DEFINITIONS = [
     note      TEXT,
     itemType  TEXT,
     invId     INTEGER,
+    menuItemId INTEGER,
     area      TEXT    DEFAULT 'cocina',
     status    TEXT    DEFAULT 'pending',
     createdAt INTEGER,

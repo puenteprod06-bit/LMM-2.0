@@ -38,6 +38,7 @@ module.exports = function ordersRoutes(db, { requireSession, notifyChange }) {
       status:        row.status,
       paymentMethod: row.paymentMethod || null,
       waiterName:    row.waiterName || '',
+      groupKey:      row.groupKey || null,
       taxRate:       row.taxRate || 0,
       createdAt:     row.createdAt,
       openedAt:      row.openedAt || null,
@@ -50,7 +51,7 @@ module.exports = function ordersRoutes(db, { requireSession, notifyChange }) {
   function getOrderItems(orderId) {
     return new Promise((resolve, reject) => {
       db.all(
-        `SELECT id, order_id, name, price, qty, lineTotal, note, itemType, invId, area,
+        `SELECT id, order_id, name, price, qty, lineTotal, note, itemType, invId, menuItemId, area,
                 status, createdAt
            FROM order_items WHERE order_id = ? AND (deleted IS NULL OR deleted = 0)`,
         [orderId],
@@ -79,11 +80,29 @@ module.exports = function ordersRoutes(db, { requireSession, notifyChange }) {
     const row = db.prepare('SELECT * FROM orders WHERE id = ?').get(id);
     if (!row) return null;
     const items = db.prepare(
-      `SELECT id, order_id, name, price, qty, lineTotal, note, itemType, invId, area,
+      `SELECT id, order_id, name, price, qty, lineTotal, note, itemType, invId, menuItemId, area,
               status, createdAt
        FROM order_items WHERE order_id = ? AND (deleted IS NULL OR deleted = 0)`
     ).all(id);
     return rowToOrder(row, items);
+  }
+
+  // ── catalogMenuItemId — id real de menu_items de un ítem ──────────
+  // OJO: `id` en GET /api/orders es order_items.id (fila), NO menu_items.id.
+  // El cliente reenvía `menuItemId` para desambiguar:
+  //   · presente y numérico → id de catálogo (se valida el precio);
+  //   · presente y null     → fila legacy sin catálogo (se conserva snapshot);
+  //   · ausente             → viene del POS como id de menú (compatibilidad).
+  function catalogMenuItemId(item) {
+    if (!item || item.itemType !== 'menu') return null;
+    if (Object.prototype.hasOwnProperty.call(item, 'menuItemId')) {
+      if (item.menuItemId == null) return null;
+      const n = Number(item.menuItemId);
+      return Number.isFinite(n) && n > 0 ? n : null;
+    }
+    if (item.id == null) return null;
+    const n = Number(item.id);
+    return Number.isFinite(n) && n > 0 ? n : null;
   }
 
   // ── getAuthorizedPrice — obtiene el precio autorizado desde SQLite ──
@@ -94,9 +113,10 @@ module.exports = function ordersRoutes(db, { requireSession, notifyChange }) {
   //  Un precio de BD ausente, nulo o cero NO autoriza un precio: solo indica
   //  que no hay referencia contra la cual verificar.
   function getAuthorizedPrice(item) {
-    if (item.itemType === 'menu' && item.id != null && !Number.isNaN(Number(item.id))) {
-      const row = db.prepare('SELECT price FROM menu_items WHERE id = ?').get(Number(item.id));
-      if (!row) throw new Error(`Producto de menú no encontrado: ${item.id}`);
+    const menuId = catalogMenuItemId(item);
+    if (menuId) {
+      const row = db.prepare('SELECT price FROM menu_items WHERE id = ?').get(menuId);
+      if (!row) throw new Error(`Producto de menú no encontrado: ${menuId}`);
       const price = Number(row.price);
       return Number.isFinite(price) && price > 0 ? price : null;
     }
@@ -386,6 +406,7 @@ module.exports = function ordersRoutes(db, { requireSession, notifyChange }) {
         note: item.note || '',
         itemType: item.itemType || 'menu',
         invId: item.invId || null,
+        menuItemId: catalogMenuItemId(item),
         area: (item.area || 'cocina').toLowerCase(),
         lineTotal: price * qty,
       });
@@ -476,13 +497,13 @@ module.exports = function ordersRoutes(db, { requireSession, notifyChange }) {
             orderId = existing.id;
             const stmtItems = db.prepare(
               `INSERT INTO order_items
-                 (order_id, name, price, qty, lineTotal, note, itemType, invId, area, status, createdAt)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)`
+                 (order_id, name, price, qty, lineTotal, note, itemType, invId, menuItemId, area, status, createdAt)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)`
             );
             for (const item of safeItems) {
               stmtItems.run(
                 orderId, item.name, item.price, item.qty, item.lineTotal,
-                item.note, item.itemType, item.invId, item.area, now
+                item.note, item.itemType, item.invId, item.menuItemId, item.area, now
               );
             }
 
@@ -516,7 +537,7 @@ module.exports = function ordersRoutes(db, { requireSession, notifyChange }) {
             // V8: el merge es una operación 'modify' de la orden abierta.
             callV8Hook('onOrderModified', {
               orderId,
-              expectedVersion: Number(req.body.expectedVersion || 0),
+              expectedVersion: req.body.expectedVersion,
               authorizationId: req.body.authorizationId || null,
               userName: req.session.name || null,
             });
@@ -546,13 +567,13 @@ module.exports = function ordersRoutes(db, { requireSession, notifyChange }) {
 
         const stmtItems = db.prepare(
           `INSERT INTO order_items
-             (order_id, name, price, qty, lineTotal, note, itemType, invId, area, status, createdAt)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)`
+             (order_id, name, price, qty, lineTotal, note, itemType, invId, menuItemId, area, status, createdAt)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)`
         );
         for (const item of safeItems) {
           stmtItems.run(
             orderId, item.name, item.price, item.qty, item.lineTotal,
-            item.note, item.itemType, item.invId, item.area, now
+            item.note, item.itemType, item.invId, item.menuItemId, item.area, now
           );
         }
 
@@ -772,7 +793,7 @@ module.exports = function ordersRoutes(db, { requireSession, notifyChange }) {
           // V8: cancelación con reintegro de stock (op 'cancel').
           callV8Hook('onOrderCancelled', {
             orderId: numericId,
-            expectedVersion: Number(req.body.expectedVersion || 0),
+            expectedVersion: req.body.expectedVersion,
             userName: req.session.name || null,
           });
 
@@ -805,7 +826,7 @@ module.exports = function ordersRoutes(db, { requireSession, notifyChange }) {
 
   // ── POST /api/orders/update-table  ────────────────────────
   router.post('/update-table', requireSession, asyncHandler(async (req, res) => {
-    const { orderId, newTableId, type } = req.body;
+    const { orderId, newTableId, type, groupKey } = req.body;
     if (!orderId) {
       return res.status(400).json({ code: 'VALIDATION_ERROR', error: 'orderId es requerido' });
     }
@@ -815,6 +836,12 @@ module.exports = function ordersRoutes(db, { requireSession, notifyChange }) {
     if (type && VALID_TYPES.has(type)) {
       sets.push('type = ?');
       params.push(type);
+    }
+    // groupKey es solo local: une órdenes de una mesa fusionada para cobrar
+    // e imprimir una única cuenta. Nunca viaja a la nube (no es campo V8).
+    if (groupKey !== undefined) {
+      sets.push('groupKey = ?');
+      params.push(groupKey == null || groupKey === '' ? null : String(groupKey).slice(0, 80));
     }
     params.push(orderId);
 
@@ -901,6 +928,7 @@ module.exports = function ordersRoutes(db, { requireSession, notifyChange }) {
         note: item.note || '',
         itemType: item.itemType || 'menu',
         invId: item.invId || null,
+        menuItemId: catalogMenuItemId(item),
         area,
         lineTotal: price * qty,
       });
@@ -977,13 +1005,13 @@ module.exports = function ordersRoutes(db, { requireSession, notifyChange }) {
 
         const stmtItems = db.prepare(
           `INSERT INTO order_items
-             (order_id, name, price, qty, lineTotal, note, itemType, invId, area, status, createdAt)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)`
+             (order_id, name, price, qty, lineTotal, note, itemType, invId, menuItemId, area, status, createdAt)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)`
         );
         for (const item of safeItems) {
           stmtItems.run(
             orderId, item.name, item.price, item.qty, item.lineTotal,
-            item.note, item.itemType, item.invId, item.area, now
+            item.note, item.itemType, item.invId, item.menuItemId, item.area, now
           );
         }
 
@@ -1124,7 +1152,7 @@ module.exports = function ordersRoutes(db, { requireSession, notifyChange }) {
         // V8: modificación de una orden abierta (op 'modify').
         callV8Hook('onOrderModified', {
           orderId,
-          expectedVersion: Number(req.body.expectedVersion || 0),
+          expectedVersion: req.body.expectedVersion,
           authorizationId: req.body.authorizationId || null,
           userName: req.session.name || null,
         });
@@ -1317,7 +1345,7 @@ module.exports = function ordersRoutes(db, { requireSession, notifyChange }) {
         // V8: reapertura de la orden (op 'reopen').
         callV8Hook('onOrderReopened', {
           orderId: numericId,
-          expectedVersion: Number(req.body.expectedVersion || 0),
+          expectedVersion: req.body.expectedVersion,
           userName: req.session.name || null,
         });
 
@@ -1382,7 +1410,7 @@ module.exports = function ordersRoutes(db, { requireSession, notifyChange }) {
 
         callV8Hook('onOrderReturned', {
           orderId: numericOrderId,
-          expectedVersion: Number(req.body.expectedVersion || 0),
+          expectedVersion: req.body.expectedVersion,
           authorizationId: authorizationId || null,
           sourceOperationId: sourceOperationId || null,
           userName: req.session.name || null,

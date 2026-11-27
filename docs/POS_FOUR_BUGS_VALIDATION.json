@@ -1,0 +1,90 @@
+{
+  "validated_at": "2026-11-27T02:55:00Z",
+  "scope": "Validación en la app (navegador Real / servidor local :3000), sin escribir en la BD real ni en Supabase durante los flujos",
+  "app": {
+    "restarted_with_patched_code": true,
+    "root_http": 200,
+    "v8_engine_started": true,
+    "cloud_restaurant_id": "96fbd1a2-1e33-4940-82c3-e44c30eaed97"
+  },
+  "method": "Se cargaron pedidos sintéticos en el estado del POS y se interceptaron las llamadas fetch del navegador. Se ejecutaron las funciones reales de public/pos-mesas.js y se inspeccionaron los payloads de /api/printer/ticket y /api/orders/pay. El estado original de S.orders/S.tables se restauró al final.",
+  "bugs": {
+    "1_editar_comanda_cambiar_producto": {
+      "status": "OK",
+      "flow": "openEditComandaModal -> _editComandaReplace -> _applyReplacement -> _confirmEditComanda",
+      "modify_items_payload": {
+        "items[0].id": 2,
+        "items[0].menuItemId": 2,
+        "items[0].name": "Hamburguesa Doble",
+        "items[0].lineTotal": 6500
+      },
+      "cambio_a_cocina_payload": {
+        "items[0].menuItemId": 2,
+        "items[0].note": "⚠️ CAMBIO — reemplaza: Hamburguesa Clásica"
+      },
+      "toasts": [
+        "✅ Comanda actualizada correctamente",
+        "🔄 Cambio enviado a cocina (Mesa 901)"
+      ]
+    },
+    "2_dividir_cuenta": {
+      "status": "OK",
+      "flow": "dividirPorPersonas -> openSplitPaymentPanel -> confirmarSplitPago -> procesarSiguienteSplit",
+      "tickets": [
+        { "id": "910001-split-1", "total": 500, "paymentMethod": "card", "label": "Persona 1" },
+        { "id": "910001-split-2", "total": 500, "paymentMethod": "card", "label": "Persona 2" }
+      ],
+      "pay_calls": 1,
+      "toasts": ["Cuenta dividida y cobrada correctamente"]
+    },
+    "3_separar_por_persona": {
+      "status": "OK",
+      "flow": "ejecutarSeparacionPersonas -> procesarSiguienteSplit",
+      "tickets": [
+        { "id": "910003-split-1", "items": ["Café"] },
+        { "id": "910003-split-2", "items": ["Torta"] }
+      ],
+      "pay_calls": 1,
+      "toasts": ["Cuenta dividida y cobrada correctamente"]
+    },
+    "4_fusionar_y_convertir_para_llevar": {
+      "status": "OK",
+      "flow": "confirmarFusionMesas -> ejecutarConvertirParaLlevar -> openCajaActions -> confirmCajaGroupPayment -> _cajaGroupTicket",
+      "caja_modal": "2 pedidos unidos",
+      "groupKey": "mesa-9107",
+      "pay_calls": 2,
+      "tickets": [
+        {
+          "id": "910006-grp",
+          "items": ["Agua Mineral 500ml", "Coca Cola 500ml"],
+          "total": 1500,
+          "paymentMethod": "cash"
+        }
+      ],
+      "toasts": [
+        "🔗 Mesa 916 fusionada en Mesa 917",
+        "🥡 Mesa 917 convertida a Para Llevar",
+        "Cuenta unida cobrada"
+      ]
+    }
+  },
+  "regression_tests": {
+    "command": "node scripts/run-tests.js --testPathPattern=tests/ --forceExit",
+    "suites": "22 passed / 22 total",
+    "tests": "396 passed / 396 total",
+    "note": "El exit code 1 de PowerShell es ruido de stderr de Electron (registration_protocol_win.cc CreateFile 0x2), no un fallo de Jest."
+  },
+  "pilot_health_after_validation": {
+    "operation_id": "57be8c12-b521-4d77-a3e8-e6deffca0478",
+    "local_status": "applied",
+    "remote_status": "applied",
+    "reject_code": null,
+    "event_seq": "1",
+    "local_stock_milli": 39000,
+    "remote_stock": 39,
+    "stock_mismatches": 0,
+    "remote_rejected_operations": 0,
+    "dead_letter": 4,
+    "dead_letter_note": "Cuatro operaciones de prueba con expected_version=0 que fueron marcadas manualmente como dead_letter antes de este reinicio; no afectan el saldo ni la operación piloto. No se reaplicó la migración V8 ni se propagó el flag."
+  }
+}

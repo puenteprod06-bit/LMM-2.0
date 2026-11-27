@@ -325,6 +325,20 @@ describe('encolado V8 de operaciones posteriores a la venta', () => {
     expect(ops).toEqual(['modify', 'cancel', 'reopen']);
   });
 
+  test('sin expectedVersion del POS usa remote_version y cuenta operaciones abiertas', () => {
+    const db = fixture();
+    db.prepare('UPDATE orders SET remote_version=1 WHERE id=1').run();
+    const ctx = { orderId: 1, deviceId: 'dev-1', userName: 'Ana' };
+    expect(v8.hook.onOrderModified(db, ctx).enqueued).toBe(true);
+    expect(v8.hook.onOrderCancelled(db, ctx).enqueued).toBe(true);
+    expect(v8.hook.onOrderReopened(db, ctx).enqueued).toBe(true);
+
+    const rows = db.prepare(`SELECT request_payload FROM inventory_outbox ORDER BY outbox_id`).all();
+    const payloads = rows.map((r) => JSON.parse(r.request_payload));
+    expect(payloads.map((p) => p.intent.expected_version)).toEqual([1, 2, 3]);
+    expect(new Set(payloads.map((p) => p.idempotency_key)).size).toBe(3);
+  });
+
   test('encola return y adjust_in / adjust_out', () => {
     const db = fixture();
     const ret = v8.hook.onOrderReturned(db, {

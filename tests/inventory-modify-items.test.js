@@ -778,4 +778,100 @@ describe('POST /api/orders/modify-items — reconciliacion de stock (Fase 2B.3)'
     // Only 8 available, so stock goes to 0 (not negative)
     expect(invAfterModify.stock).toBe(0);
   });
+
+  // Regresión: el modal de edición reenvía las filas tal cual las devuelve GET.
+  test('20. Editar con filas de GET no confunde order_items.id con menu_items.id', async () => {
+    const { app, db } = buildTestApp({ withOwnerSession: true });
+    const native = db._native;
+    const { setDbForTesting } = require('../db');
+    setDbForTesting(native);
+
+    const menuId = native.prepare(
+      "INSERT INTO menu_items (name, price, catId, available) VALUES ('Menu Real', 2500, 1, 1)"
+    ).run().lastInsertRowid;
+
+    const finRes = await request(app).post('/api/orders/finalize').send({
+      discount: 0, discountType: 'percent', taxRate: 0,
+      type: 'takeaway', status: 'pending', waiterName: 'Test',
+      items: [{ id: menuId, name: 'Menu Real', price: 2500, qty: 2, itemType: 'menu', area: 'cocina' }]
+    });
+    expect(finRes.status).toBe(200);
+    const orderId = finRes.body.id;
+
+    const listRes = await request(app).get('/api/orders');
+    expect(listRes.status).toBe(200);
+    const order = listRes.body.find(o => o.id === orderId);
+    expect(order).toBeTruthy();
+    // `id` es la fila; `menuItemId` es el catálogo. El modal reenvía ambos.
+    expect(order.items[0].menuItemId).toBe(menuId);
+
+    const modRes = await request(app).post('/api/orders/modify-items').send({
+      orderId,
+      items: order.items.map(i => ({ ...i, qty: 3 })),
+      discount: order.discount || 0,
+      discountType: order.discountType || 'percent',
+      taxRate: order.taxRate || 0,
+    });
+    expect(modRes.status).toBe(200);
+    expect(modRes.body.subtotal).toBeCloseTo(7500, 0);
+
+    const saved = native.prepare(
+      'SELECT menuItemId, price FROM order_items WHERE order_id = ? AND deleted = 0'
+    ).all(orderId);
+    expect(saved).toHaveLength(1);
+    expect(saved[0].menuItemId).toBe(menuId);
+    expect(saved[0].price).toBeCloseTo(2500, 0);
+  });
+
+  // Regresión: _applyReplacement debe limpiar itemType/invId al pasar inventario → menú.
+  test('21. Reemplazar inventario por menú reintegra stock y no usa invId viejo', async () => {
+    const { app, db } = buildTestApp({ withOwnerSession: true });
+    const native = db._native;
+    const { setDbForTesting } = require('../db');
+    setDbForTesting(native);
+
+    const invId = makeInvItem(native, { name: 'Prod', stock: 10, salePrice: 50 });
+    const finRes = await finalizeOrder(app, invId, 3, 10);
+    expect(finRes.status).toBe(200);
+    const orderId = finRes.body.id;
+    expect(native.prepare('SELECT stock FROM inventory WHERE id = ?').get(invId).stock).toBe(7);
+
+    const menuId = native.prepare(
+      "INSERT INTO menu_items (name, price, catId, available) VALUES ('Menu Nuevo', 2500, 1, 1)"
+    ).run().lastInsertRowid;
+
+    const rows = native.prepare('SELECT * FROM order_items WHERE order_id = ? AND deleted = 0').all(orderId);
+    const replaced = rows.map(r => ({
+      ...r,
+      id: menuId,
+      menuItemId: menuId,
+      itemType: 'menu',
+      invId: null,
+      name: 'Menu Nuevo',
+      price: 2500,
+      lineTotal: 2500 * r.qty,
+      _replaced: true,
+    }));
+
+    const modRes = await request(app).post('/api/orders/modify-items').send({
+      orderId,
+      items: replaced,
+      discount: 0,
+      discountType: 'percent',
+      taxRate: 0,
+    });
+    expect(modRes.status).toBe(200);
+
+    const stock = native.prepare('SELECT stock FROM inventory WHERE id = ?').get(invId).stock;
+    expect(stock).toBe(10); // se reintegran las 3 unidades
+
+    const saved = native.prepare(
+      'SELECT itemType, invId, menuItemId, price FROM order_items WHERE order_id = ? AND deleted = 0'
+    ).all(orderId);
+    expect(saved).toHaveLength(1);
+    expect(saved[0].itemType).toBe('menu');
+    expect(saved[0].invId).toBeNull();
+    expect(saved[0].menuItemId).toBe(menuId);
+    expect(saved[0].price).toBeCloseTo(2500, 0);
+  });
 });

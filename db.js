@@ -436,7 +436,8 @@ try {
       status TEXT,
       paymentMethod TEXT,
       createdAt INTEGER,
-      waiterName TEXT
+      waiterName TEXT,
+      groupKey TEXT
     );
 
     CREATE TABLE IF NOT EXISTS order_items (
@@ -448,7 +449,8 @@ try {
       lineTotal REAL,
       note TEXT,
       itemType TEXT,
-      invId INTEGER
+      invId INTEGER,
+      menuItemId INTEGER
     );
 
     CREATE TABLE IF NOT EXISTS tables (
@@ -502,6 +504,8 @@ addColumnIfMissing('menu_items', 'combo_items', 'TEXT DEFAULT NULL'); // JSON ar
 addColumnIfMissing('inventory', 'area', "TEXT DEFAULT 'bar'");
 addColumnIfMissing('order_items', 'area', "TEXT DEFAULT 'cocina'");
 addColumnIfMissing('order_items', 'status', "TEXT DEFAULT 'pending'");
+// id real de menu_items. El `id` de la fila NO sirve para validar precios.
+addColumnIfMissing('order_items', 'menuItemId', 'INTEGER');
 addColumnIfMissing('tables', 'openedAt',       'INTEGER');
 addColumnIfMissing('tables', 'sort_order',     'INTEGER DEFAULT 0');
 addColumnIfMissing('tables', 'lastOrderAt',    'INTEGER');
@@ -514,6 +518,8 @@ addColumnIfMissing('orders', 'paymentStatus', "TEXT DEFAULT 'pending'");
 addColumnIfMissing('orders', 'discountType', "TEXT DEFAULT 'percent'");
 addColumnIfMissing('orders', 'paidAt', 'INTEGER');
 addColumnIfMissing('orders', 'taxRate', 'REAL DEFAULT 0');
+// Agrupa las órdenes de una mesa fusionada para cobrar/imprimir una sola cuenta.
+addColumnIfMissing('orders', 'groupKey', 'TEXT');
 addColumnIfMissing('order_items', 'status', "TEXT DEFAULT 'pending'");
 addColumnIfMissing('order_items', 'createdAt', 'INTEGER');
 

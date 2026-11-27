@@ -43,6 +43,30 @@ function deviceIdFromCtx(ctx) {
 }
 
 /**
+ * Versión esperada de una orden en la nube. Si el llamador no la aporta
+ * (los flujos del POS no la conocen), se usa la última versión confirmada en
+ * local (`orders.remote_version`, refresada por reconcile) más las operaciones
+ * aún abiertas de esa misma orden. El outbox serializa esas operaciones por
+ * partición, así que cada una eleva la versión remota en uno.
+ */
+function orderExpectedVersion(db, order, ctx) {
+  const explicit = ctx && ctx.expectedVersion;
+  if (explicit !== undefined && explicit !== null && explicit !== '' && Number.isFinite(Number(explicit))) {
+    return Math.max(0, Math.trunc(Number(explicit)));
+  }
+  const confirmed = Math.max(0, Number(order.remote_version || 0));
+  // Pedidos nunca sincronizados: se mantiene el 0 histórico para que dos
+  // modificaciones idénticas sigan colapsando en la misma fila del outbox.
+  if (confirmed === 0) return 0;
+  const open = db.prepare(
+    `SELECT COUNT(*) AS c FROM inventory_outbox
+      WHERE entity_type='order' AND entity_uuid=?
+        AND status IN ('pending','claimed','retry_wait')`
+  ).get(order.uuid).c;
+  return confirmed + open;
+}
+
+/**
  * Construye los ítems de intención a partir de las filas de order_items de una orden.
  * Cada ítem de inventario lleva inventory_uuid, qty como string canónico y unit_price.
  */
@@ -201,7 +225,7 @@ function onOrderCreated(db, ctx) {
  */
 function onOrderModified(db, ctx) {
   try {
-    const order = db.prepare('SELECT id, uuid FROM orders WHERE id=?').get(ctx.orderId);
+    const order = db.prepare('SELECT id, uuid, remote_version FROM orders WHERE id=?').get(ctx.orderId);
     if (!order || !order.uuid) return { enqueued: false, reason: 'order_without_uuid' };
 
     const auth = checkedAuthorization(db, ctx, 'negative_stock', { orderUuid: order.uuid });
@@ -213,11 +237,12 @@ function onOrderModified(db, ctx) {
 
     // Mapeo local (invId) para marcar movimientos; el intent enviado es canónico.
     const firstItemByInv = localInventoryIndex(db, ctx.orderId, items);
+    const expectedVersion = orderExpectedVersion(db, order, ctx);
 
     const q = outbox.enqueue(db, {
-      opKind: 'modify', entityType: 'order', entityUuid: order.uuid, purposeSeq: Number(ctx.expectedVersion || 0),
+      opKind: 'modify', entityType: 'order', entityUuid: order.uuid, purposeSeq: expectedVersion,
       intent: {
-        expected_version: Number(ctx.expectedVersion || 0),
+        expected_version: expectedVersion,
         snapshot: { origin: 'desktop' }, items,
         authorization_id: auth.authorizationId,
       },
@@ -238,12 +263,13 @@ function onOrderModified(db, ctx) {
  */
 function onOrderCancelled(db, ctx) {
   try {
-    const order = db.prepare('SELECT id, uuid FROM orders WHERE id=?').get(ctx.orderId);
+    const order = db.prepare('SELECT id, uuid, remote_version FROM orders WHERE id=?').get(ctx.orderId);
     if (!order || !order.uuid) return { enqueued: false, reason: 'order_without_uuid' };
 
+    const expectedVersion = orderExpectedVersion(db, order, ctx);
     const q = outbox.enqueue(db, {
-      opKind: 'cancel', entityType: 'order', entityUuid: order.uuid, purposeSeq: Number(ctx.expectedVersion || 0),
-      intent: { expected_version: Number(ctx.expectedVersion || 0), snapshot: { origin: 'desktop' }, authorization_id: null },
+      opKind: 'cancel', entityType: 'order', entityUuid: order.uuid, purposeSeq: expectedVersion,
+      intent: { expected_version: expectedVersion, snapshot: { origin: 'desktop' }, authorization_id: null },
       deviceId: ctx.deviceId, restaurantId: restaurantIdFromConfig(db),
       clientActor: ctx.userName || null, dependsOn: ctx.dependsOnOperationId || null,
     });
@@ -273,12 +299,13 @@ function onOrderCancelled(db, ctx) {
  */
 function onOrderReopened(db, ctx) {
   try {
-    const order = db.prepare('SELECT id, uuid FROM orders WHERE id=?').get(ctx.orderId);
+    const order = db.prepare('SELECT id, uuid, remote_version FROM orders WHERE id=?').get(ctx.orderId);
     if (!order || !order.uuid) return { enqueued: false, reason: 'order_without_uuid' };
 
+    const expectedVersion = orderExpectedVersion(db, order, ctx);
     const q = outbox.enqueue(db, {
-      opKind: 'reopen', entityType: 'order', entityUuid: order.uuid, purposeSeq: Number(ctx.expectedVersion || 0),
-      intent: { expected_version: Number(ctx.expectedVersion || 0), snapshot: { origin: 'desktop' }, authorization_id: null },
+      opKind: 'reopen', entityType: 'order', entityUuid: order.uuid, purposeSeq: expectedVersion,
+      intent: { expected_version: expectedVersion, snapshot: { origin: 'desktop' }, authorization_id: null },
       deviceId: ctx.deviceId, restaurantId: restaurantIdFromConfig(db),
       clientActor: ctx.userName || null, dependsOn: ctx.dependsOnOperationId || null,
     });
@@ -294,7 +321,7 @@ function onOrderReopened(db, ctx) {
  */
 function onOrderReturned(db, ctx) {
   try {
-    const order = db.prepare('SELECT id, uuid FROM orders WHERE id=?').get(ctx.orderId);
+    const order = db.prepare('SELECT id, uuid, remote_version FROM orders WHERE id=?').get(ctx.orderId);
     if (!order || !order.uuid) return { enqueued: false, reason: 'order_without_uuid' };
 
     const auth = checkedAuthorization(db, ctx, 'negative_stock', { orderUuid: order.uuid });
@@ -323,10 +350,11 @@ function onOrderReturned(db, ctx) {
     }
     if (!intentItems.length) return { enqueued: false, reason: 'no_items' };
 
+    const expectedVersion = orderExpectedVersion(db, order, ctx);
     const q = outbox.enqueue(db, {
-      opKind: 'return', entityType: 'order', entityUuid: order.uuid, purposeSeq: Number(ctx.expectedVersion || 0),
+      opKind: 'return', entityType: 'order', entityUuid: order.uuid, purposeSeq: expectedVersion,
       intent: {
-        expected_version: Number(ctx.expectedVersion || 0),
+        expected_version: expectedVersion,
         snapshot: { origin: 'desktop' }, items: intentItems,
         authorization_id: auth.authorizationId,
         source_operation_id: ctx.sourceOperationId || null,
