@@ -14,19 +14,18 @@
       "precio de 16 caracteres ($ 123.456.789,00)",
       "producto en promoción con precio original tachado"
     ],
-    "decision": "El propietario confirmó object-fit: cover para que la imagen llene todo el cuadro; en proporciones extremas hay recorte, sin deformación."
+    "decision": "El propietario confirmó object-fit: cover para que la imagen llene todo el cuadro; en proporciones extremas hay recorte, sin deformación. El alto de las cards se redujo sin bajar el tamaño de nombre ni de monto."
   },
   "resultados": [
     {
       "viewport": "1600x900",
       "columnasPorFila": [4],
-      "tamanoUnicoDeCard": "197x380",
-      "altoContenedorDeImagen": 150,
+      "tamanoUnicoDeCard": "197x312",
+      "altoContenedorDeImagen": 108,
       "objectFit": "cover",
       "imagenLlenaElCuadro": true,
-      "imagenesNaturales": ["800x120", "120x800", "736x550", "400x400"],
       "fuenteNombre": "20px (nombre largo: 18.5px)",
-      "fuentePrecio": "20px (precio largo: 18.5px)",
+      "fuentePrecio": "20px (precio largo: 19px)",
       "nombreCortado": false,
       "precioCortado": false,
       "desbordeDeCard": "0x0"
@@ -34,13 +33,12 @@
     {
       "viewport": "1024x768",
       "columnasPorFila": [2, 2],
-      "tamanoUnicoDeCard": "199x348",
-      "altoContenedorDeImagen": 132,
+      "tamanoUnicoDeCard": "199x292",
+      "altoContenedorDeImagen": 98,
       "objectFit": "cover",
       "imagenLlenaElCuadro": true,
-      "imagenesNaturales": ["800x120", "120x800", "736x550", "400x400"],
       "fuenteNombre": "19px (nombre largo: 17.5px)",
-      "fuentePrecio": "19px (precio largo: 18.5px)",
+      "fuentePrecio": "19px (precio largo: 19px)",
       "nombreCortado": false,
       "precioCortado": false,
       "desbordeDeCard": "0x0"
@@ -48,12 +46,11 @@
     {
       "viewport": "768x900",
       "columnasPorFila": [3, 1],
-      "tamanoUnicoDeCard": "221x320",
-      "altoContenedorDeImagen": 112,
+      "tamanoUnicoDeCard": "221x274",
+      "altoContenedorDeImagen": 86,
       "objectFit": "cover",
       "imagenLlenaElCuadro": true,
-      "imagenesNaturales": ["800x120", "120x800", "736x550", "400x400"],
-      "fuenteNombre": "18px (nombre largo: 16.5px)",
+      "fuenteNombre": "18px (nombre largo: 17px)",
       "fuentePrecio": "18px (precio largo: 18px)",
       "nombreCortado": false,
       "precioCortado": false,
@@ -62,11 +59,10 @@
     {
       "viewport": "390x844",
       "columnasPorFila": [2, 2],
-      "tamanoUnicoDeCard": "152x322",
-      "altoContenedorDeImagen": 104,
+      "tamanoUnicoDeCard": "152x286",
+      "altoContenedorDeImagen": 82,
       "objectFit": "cover",
       "imagenLlenaElCuadro": true,
-      "imagenesNaturales": ["800x120", "120x800", "736x550", "400x400"],
       "fuenteNombre": "18px (nombre largo: 16px)",
       "fuentePrecio": "18px (precio largo: 14px)",
       "nombreCortado": false,

@@ -490,11 +490,11 @@ body:has(.pos-layout){
 
 /* PRODUCT CARDS: una sola grilla, medidas fijas por resolución */
 .pos-items{
-  --card-h:380px;
-  --media-h:150px;
+  --card-h:312px;
+  --media-h:110px;
   --name-h:112px;
-  --price-h:46px;
-  --meta-h:16px;
+  --price-h:38px;
+  --meta-h:12px;
   display:grid;
   grid-template-columns:repeat(auto-fill,minmax(180px,1fr));
   gap:16px;
@@ -510,7 +510,7 @@ body:has(.pos-layout){
   flex-direction:column;
   align-items:stretch;
   justify-content:flex-start;
-  padding:12px;
+  padding:10px;
   border-radius:18px;
   background:linear-gradient(160deg,#101a2a 0%,#0b1018 100%)!important;
   border:1px solid rgba(197,160,89,.3)!important;
@@ -574,7 +574,7 @@ body:has(.pos-layout){
   height:var(--name-h);
   width:100%;
   display:block;
-  margin:8px 0 0;
+  margin:6px 0 0;
   font-size:1.25rem;
   line-height:1.2;
   font-weight:800;
@@ -597,7 +597,7 @@ body:has(.pos-layout){
   align-items:center;
   justify-content:center;
   gap:1px;
-  margin:6px 0 0;
+  margin:4px 0 0;
   font-family:"JetBrains Mono",ui-monospace,monospace;
   font-size:1.25rem;
   font-weight:800;
@@ -624,7 +624,7 @@ body:has(.pos-layout){
   display:flex;
   align-items:center;
   justify-content:center;
-  margin:4px 0 0;
+  margin:2px 0 0;
   font-size:.65rem;
   font-weight:700;
   color:var(--text3);
@@ -671,11 +671,11 @@ body:has(.pos-layout){
 
 @media (max-width:1200px){
   .pos-items{
-    --card-h:348px;
-    --media-h:132px;
+    --card-h:292px;
+    --media-h:100px;
     --name-h:104px;
-    --price-h:42px;
-    --meta-h:14px;
+    --price-h:36px;
+    --meta-h:12px;
     grid-template-columns:repeat(auto-fill,minmax(160px,1fr));
     gap:14px;
     padding:14px;
@@ -685,11 +685,11 @@ body:has(.pos-layout){
 }
 @media (max-width:900px){
   .pos-items{
-    --card-h:324px;
-    --media-h:116px;
+    --card-h:278px;
+    --media-h:92px;
     --name-h:100px;
-    --price-h:40px;
-    --meta-h:12px;
+    --price-h:36px;
+    --meta-h:10px;
     grid-template-columns:repeat(3,minmax(0,1fr));
     gap:12px;
     padding:12px;
@@ -699,11 +699,11 @@ body:has(.pos-layout){
 }
 @media (max-width:768px){
   .pos-items{
-    --card-h:320px;
-    --media-h:112px;
+    --card-h:274px;
+    --media-h:88px;
     --name-h:100px;
-    --price-h:40px;
-    --meta-h:12px;
+    --price-h:36px;
+    --meta-h:10px;
     grid-template-columns:repeat(3,minmax(0,1fr));
     gap:12px;
     padding:12px;
@@ -713,8 +713,8 @@ body:has(.pos-layout){
 }
 @media (max-width:520px){
   .pos-items{
-    --card-h:322px;
-    --media-h:104px;
+    --card-h:286px;
+    --media-h:84px;
     --name-h:116px;
     grid-template-columns:repeat(2,minmax(0,1fr));
     gap:10px;
