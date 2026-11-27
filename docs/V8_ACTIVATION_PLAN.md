@@ -136,7 +136,12 @@ Tras la confirmación real se aplicó la migración a la SQLite del POS con
    canónico y el mapeo local queda fuera de la operación.
    Evidencia: `docs/V8_PRODUCTION_PILOT_TEST_SALE_RESULT.json`.
 4. Pendiente: observar 24–48 h (eventos sin crecimiento anómalo, cero
-   `UNAUTHORIZED_PRICE`, vales offline dentro del límite).
+   `UNAUTHORIZED_PRICE`, vales offline dentro del límite). Chequeo de salud
+   del 2026-11-27 (solo lectura, sin operaciones nuevas): venta piloto
+   `applied` local y remota, `reject_code=null`, `event_seq=1`, stock local
+   `39000` mili / remoto `39`, `stock_mismatches=[]`, `remote_rejected=[]`,
+   outbox `applied=10`, `dead_letter=4` (las operaciones stale conocidas
+   `df885644…`, `6b9a943b…`, `7ca7566d…`, `d7f4fb33…`), último seq `10`.
 5. Solo después extender al resto por restaurantes, nunca a medias.
 
 **Estado final de esta etapa:** G0, G1, G2, G3 y el encendido del piloto G4 están
