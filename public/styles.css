@@ -480,32 +480,158 @@ body{padding-top:var(--titlebar-h)}
 .empty-state{min-height:calc(100vh - 220px - var(--titlebar-h))}
 
 /* ============================================================
-   VENTA — densidad, fondo sobrio y jerarquía de controles
+   VENTA — tarjetas grandes y uniformes, fondo sobrio y jerarquía
    ============================================================ */
 body:has(.pos-layout){
   background-color:#0b1018!important;
   background-image:linear-gradient(135deg,#0b1018 0%,#111a28 100%)!important;
   background-attachment:fixed!important;
 }
+
+/* PRODUCT CARDS: una sola grilla, medidas fijas por resolución */
 .pos-items{
-  grid-template-columns:repeat(auto-fill,minmax(130px,1fr))!important;
-  gap:10px!important;
-  padding:12px!important;
-  justify-content:start!important;
-  align-content:start!important;
+  --card-h:248px;
+  --media-h:96px;
+  --name-h:54px;
+  --price-h:38px;
+  --meta-h:16px;
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(180px,1fr));
+  gap:16px;
+  padding:16px;
+  justify-content:start;
+  align-content:start;
 }
 .pos-item{
-  width:100%!important;
-  height:132px!important;
-  aspect-ratio:auto!important;
-  justify-content:flex-start!important;
-  gap:3px!important;
-  padding:10px!important;
-  border-radius:14px!important;
+  width:100%;
+  min-width:0;
+  height:var(--card-h);
+  display:flex;
+  flex-direction:column;
+  align-items:stretch;
+  justify-content:flex-start;
+  padding:12px;
+  border-radius:18px;
+  background:linear-gradient(160deg,#101a2a 0%,#0b1018 100%)!important;
+  border:1px solid rgba(197,160,89,.3)!important;
+  box-shadow:0 10px 26px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.03);
+  transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease,background .18s ease;
+  cursor:pointer;
+  overflow:hidden;
+  color:var(--text);
 }
-.pos-item img{flex:0 0 auto!important}
-.pos-item .name{font-size:.82rem!important;line-height:1.15!important;min-height:2.3em;margin:2px 0!important}
-.pos-item .price{font-size:1rem!important;margin-top:auto!important}
+.pos-item:hover{
+  background:linear-gradient(160deg,#16243a 0%,#0d1420 100%)!important;
+  border-color:rgba(197,160,89,.7)!important;
+  box-shadow:0 14px 34px rgba(0,0,0,.45),0 0 0 1px rgba(197,160,89,.18),inset 0 1px 0 rgba(255,255,255,.04)!important;
+  transform:translateY(-2px);
+}
+.pos-item:active{transform:translateY(0)}
+.pos-item.pos-item-promo{background:linear-gradient(160deg,#1b1a12 0%,#0b1018 100%)!important;border-color:rgba(245,158,11,.65)!important}
+.pos-item.pos-item-promo:hover{background:linear-gradient(160deg,#25200f 0%,#0d1420 100%)!important;border-color:#f59e0b!important}
+.pos-item.pos-item-flash{animation:posItemFlash .5s ease-out}
+
+/* Imagen completa, centrada y sin recortes */
+.pos-card-media{
+  flex:0 0 var(--media-h);
+  height:var(--media-h);
+  width:100%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:#070c13;
+  border:1px solid rgba(197,160,89,.14);
+  border-radius:12px;
+  overflow:hidden;
+}
+.pos-card-media img{
+  display:block;
+  width:100%;
+  height:100%;
+  object-fit:contain!important;
+  object-position:center;
+  image-rendering:auto;
+}
+.pos-card-badge{
+  position:absolute;
+  top:8px;
+  left:8px;
+  z-index:2;
+  background:#f59e0b;
+  color:#0d1726;
+  font-size:.58rem;
+  font-weight:900;
+  letter-spacing:.4px;
+  line-height:1.3;
+  padding:3px 8px;
+  border-radius:20px;
+  box-shadow:0 2px 8px rgba(0,0,0,.35);
+}
+
+/* Nombre reservado para hasta 3 líneas, sin puntos suspensivos */
+.pos-item .name{
+  flex:0 0 var(--name-h);
+  height:var(--name-h);
+  width:100%;
+  display:block;
+  margin:8px 0 0;
+  font-size:.875rem;
+  line-height:1.25;
+  font-weight:700;
+  color:#f4f7fb;
+  text-align:center;
+  overflow:hidden;
+  overflow-wrap:anywhere;
+  word-break:break-word;
+  hyphens:auto;
+}
+
+/* Precio siempre completo y en la misma posición */
+.pos-item .price{
+  flex:0 0 var(--price-h);
+  height:var(--price-h);
+  width:100%;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:1px;
+  margin:6px 0 0;
+  font-family:"JetBrains Mono",ui-monospace,monospace;
+  font-size:1rem;
+  font-weight:800;
+  line-height:1.1;
+  letter-spacing:-.02em;
+  font-variant-numeric:tabular-nums;
+  color:var(--accent)!important;
+  white-space:nowrap;
+  overflow:hidden;
+}
+.pos-item .price-main{
+  display:inline-block;
+  max-width:100%;
+  white-space:nowrap;
+  font-size:inherit;
+  font-variant-numeric:tabular-nums;
+}
+.pos-item .price small{display:block;font-size:.68rem;font-weight:600;opacity:.65;text-decoration:line-through;color:var(--text3)}
+.pos-item.pos-item-promo .price{color:#f0b429!important}
+.pos-card-stock{
+  flex:0 0 var(--meta-h);
+  height:var(--meta-h);
+  width:100%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  margin:4px 0 0;
+  font-size:.65rem;
+  font-weight:700;
+  color:var(--text3);
+  white-space:nowrap;
+  overflow:hidden;
+}
+
+/* Carrito y jerarquía de controles (sin cambios funcionales) */
 .pos-order-items.is-empty{
   flex:0 0 auto!important;
   display:flex!important;
@@ -541,7 +667,56 @@ body:has(.pos-layout){
 }
 .btn-pos.btn-cocina{background:linear-gradient(135deg,#c5a059,#a38446)!important;color:#0d1726!important}
 .btn-pos:disabled{opacity:.45!important;filter:grayscale(.25)}
+
+@media (max-width:1200px){
+  .pos-items{
+    --card-h:228px;
+    --media-h:86px;
+    --name-h:50px;
+    --price-h:34px;
+    --meta-h:14px;
+    grid-template-columns:repeat(auto-fill,minmax(160px,1fr));
+    gap:14px;
+    padding:14px;
+  }
+  .pos-item .name{font-size:.8125rem}
+  .pos-item .price{font-size:.9375rem}
+}
+@media (max-width:900px){
+  .pos-items{
+    --card-h:216px;
+    --media-h:80px;
+    --name-h:48px;
+    --price-h:32px;
+    --meta-h:12px;
+    grid-template-columns:repeat(3,minmax(0,1fr));
+    gap:12px;
+    padding:12px;
+  }
+  .pos-item .name{font-size:.78rem}
+  .pos-item .price{font-size:.875rem}
+}
 @media (max-width:768px){
-  .pos-item{height:124px!important}
-  .pos-items{grid-template-columns:repeat(auto-fill,minmax(120px,1fr))!important}
+  .pos-items{
+    --card-h:212px;
+    --media-h:78px;
+    --name-h:46px;
+    --price-h:32px;
+    --meta-h:12px;
+    grid-template-columns:repeat(3,minmax(0,1fr));
+    gap:12px;
+    padding:12px;
+  }
+  .pos-item .name{font-size:.76rem}
+  .pos-item .price{font-size:.875rem}
+}
+@media (max-width:520px){
+  .pos-items{
+    --media-h:72px;
+    --name-h:50px;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:10px;
+    padding:10px;
+  }
+  .pos-item{padding:10px}
 }
