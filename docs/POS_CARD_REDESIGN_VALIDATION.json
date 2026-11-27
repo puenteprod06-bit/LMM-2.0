@@ -4,7 +4,7 @@
   "metodo": {
     "estado": "sintético en S.menuItems / S.inventory / S.orders / S.currentOrder",
     "red": "fetch interceptado; no se crearon órdenes ni se descontó stock real",
-    "medicion": "getBoundingClientRect, getComputedStyle, scrollWidth/scrollHeight y naturalWidth/naturalHeight",
+    "medicion": "getBoundingClientRect, getComputedStyle, scrollWidth/scrollHeight, offsetWidth/clientWidth y naturalWidth/naturalHeight",
     "casos": [
       "imagen extrema 800x120",
       "imagen extrema 120x800",
@@ -13,16 +13,19 @@
       "nombre de 79 caracteres",
       "precio de 16 caracteres",
       "producto en promoción con precio original tachado"
-    ]
+    ],
+    "decision": "El propietario confirmó object-fit: cover para que la imagen llene todo el cuadro; en proporciones extremas hay recorte, sin deformación."
   },
   "resultados": [
     {
       "viewport": "1600x900",
       "columnasPorFila": [4],
-      "tamanoUnicoDeCard": "197x308",
+      "tamanoUnicoDeCard": "197x340",
       "altoContenedorDeImagen": 150,
-      "objectFit": "contain",
+      "objectFit": "cover",
+      "imagenLlenaElCuadro": true,
       "imagenesNaturales": ["800x120", "120x800", "736x550", "400x400"],
+      "fuenteNombre": "17px (nombre largo: 14.5px)",
       "nombreCortado": false,
       "precioCortado": false,
       "desbordeDeCard": "0x0"
@@ -30,10 +33,12 @@
     {
       "viewport": "1024x768",
       "columnasPorFila": [2, 2],
-      "tamanoUnicoDeCard": "199x286",
+      "tamanoUnicoDeCard": "199x314",
       "altoContenedorDeImagen": 132,
-      "objectFit": "contain",
+      "objectFit": "cover",
+      "imagenLlenaElCuadro": true,
       "imagenesNaturales": ["800x120", "120x800", "736x550", "400x400"],
+      "fuenteNombre": "16px (nombre largo: 15px)",
       "nombreCortado": false,
       "precioCortado": false,
       "desbordeDeCard": "0x0"
@@ -41,10 +46,12 @@
     {
       "viewport": "768x900",
       "columnasPorFila": [3, 1],
-      "tamanoUnicoDeCard": "221x264",
+      "tamanoUnicoDeCard": "221x290",
       "altoContenedorDeImagen": 112,
-      "objectFit": "contain",
+      "objectFit": "cover",
+      "imagenLlenaElCuadro": true,
       "imagenesNaturales": ["800x120", "120x800", "736x550", "400x400"],
+      "fuenteNombre": "15px (nombre largo: 15px)",
       "nombreCortado": false,
       "precioCortado": false,
       "desbordeDeCard": "0x0"
@@ -52,10 +59,12 @@
     {
       "viewport": "390x844",
       "columnasPorFila": [2, 2],
-      "tamanoUnicoDeCard": "152x264",
+      "tamanoUnicoDeCard": "152x292",
       "altoContenedorDeImagen": 104,
-      "objectFit": "contain",
+      "objectFit": "cover",
+      "imagenLlenaElCuadro": true,
       "imagenesNaturales": ["800x120", "120x800", "736x550", "400x400"],
+      "fuenteNombre": "15px (nombre largo: 14.5px)",
       "nombreCortado": false,
       "precioCortado": false,
       "desbordeDeCard": "0x0"

@@ -41,7 +41,7 @@ function fitPOSCardText(){
   }
   document.querySelectorAll("#pos-items .pos-item").forEach(card=>{
     const name=card.querySelector(".name"),price=card.querySelector(".price-main");
-    if(name){name.style.fontSize="";let size=parseFloat(getComputedStyle(name).fontSize)||14;for(let i=0;i<14&&name.scrollHeight>name.clientHeight+1&&size>9.5;i-=.5){size=Math.max(9.5,size-.5);name.style.fontSize=size+"px"}}
+    if(name){name.style.fontSize="";let size=parseFloat(getComputedStyle(name).fontSize)||14;for(let i=0;i<14&&name.scrollHeight>name.clientHeight+1&&size>11;i-=.5){size=Math.max(11,size-.5);name.style.fontSize=size+"px"}}
     if(price){price.style.fontSize="";let size=parseFloat(getComputedStyle(price).fontSize)||15;for(let i=0;i<12&&price.scrollWidth>price.clientWidth+1&&size>9.5;i-=.5){size=Math.max(9.5,size-.5);price.style.fontSize=size+"px"}}
   })
 }

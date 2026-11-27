@@ -490,9 +490,9 @@ body:has(.pos-layout){
 
 /* PRODUCT CARDS: una sola grilla, medidas fijas por resolución */
 .pos-items{
-  --card-h:308px;
+  --card-h:340px;
   --media-h:150px;
-  --name-h:56px;
+  --name-h:84px;
   --price-h:38px;
   --meta-h:16px;
   display:grid;
@@ -531,7 +531,7 @@ body:has(.pos-layout){
 .pos-item.pos-item-promo:hover{background:linear-gradient(160deg,#25200f 0%,#0d1420 100%)!important;border-color:#f59e0b!important}
 .pos-item.pos-item-flash{animation:posItemFlash .5s ease-out}
 
-/* Imagen completa, centrada y sin recortes */
+/* Imagen centrada que llena todo el cuadro (cover) */
 .pos-card-media{
   flex:0 0 var(--media-h);
   height:var(--media-h);
@@ -548,8 +548,8 @@ body:has(.pos-layout){
   display:block;
   width:100%;
   height:100%;
-  object-fit:contain!important;
-  object-position:center;
+  object-fit:cover!important;
+  object-position:center!important;
   image-rendering:auto;
 }
 .pos-card-badge{
@@ -568,17 +568,18 @@ body:has(.pos-layout){
   box-shadow:0 2px 8px rgba(0,0,0,.35);
 }
 
-/* Nombre reservado para hasta 3 líneas, sin puntos suspensivos */
+/* Nombre grande, claro y reservado, sin puntos suspensivos */
 .pos-item .name{
   flex:0 0 var(--name-h);
   height:var(--name-h);
   width:100%;
   display:block;
   margin:8px 0 0;
-  font-size:.875rem;
-  line-height:1.25;
-  font-weight:700;
-  color:#f4f7fb;
+  font-size:1.0625rem;
+  line-height:1.2;
+  font-weight:800;
+  color:#fff!important;
+  text-shadow:0 1px 3px rgba(0,0,0,.55);
   text-align:center;
   overflow:hidden;
   overflow-wrap:anywhere;
@@ -670,51 +671,51 @@ body:has(.pos-layout){
 
 @media (max-width:1200px){
   .pos-items{
-    --card-h:286px;
+    --card-h:314px;
     --media-h:132px;
-    --name-h:52px;
+    --name-h:78px;
     --price-h:34px;
     --meta-h:14px;
     grid-template-columns:repeat(auto-fill,minmax(160px,1fr));
     gap:14px;
     padding:14px;
   }
-  .pos-item .name{font-size:.8125rem}
+  .pos-item .name{font-size:1rem}
   .pos-item .price{font-size:.9375rem}
 }
 @media (max-width:900px){
   .pos-items{
-    --card-h:268px;
+    --card-h:290px;
     --media-h:116px;
-    --name-h:48px;
+    --name-h:74px;
     --price-h:32px;
     --meta-h:12px;
     grid-template-columns:repeat(3,minmax(0,1fr));
     gap:12px;
     padding:12px;
   }
-  .pos-item .name{font-size:.78rem}
+  .pos-item .name{font-size:.9375rem}
   .pos-item .price{font-size:.875rem}
 }
 @media (max-width:768px){
   .pos-items{
-    --card-h:264px;
+    --card-h:290px;
     --media-h:112px;
-    --name-h:48px;
+    --name-h:74px;
     --price-h:32px;
     --meta-h:12px;
     grid-template-columns:repeat(3,minmax(0,1fr));
     gap:12px;
     padding:12px;
   }
-  .pos-item .name{font-size:.76rem}
+  .pos-item .name{font-size:.9375rem}
   .pos-item .price{font-size:.875rem}
 }
 @media (max-width:520px){
   .pos-items{
-    --card-h:264px;
+    --card-h:292px;
     --media-h:104px;
-    --name-h:50px;
+    --name-h:92px;
     grid-template-columns:repeat(2,minmax(0,1fr));
     gap:10px;
     padding:10px;
