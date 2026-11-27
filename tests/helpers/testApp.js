@@ -128,6 +128,8 @@ const TABLE_DEFINITIONS = [
     promo_ends_at       INTEGER,
     promo_original_price REAL,
     promo_original_name TEXT,
+    is_combo  INTEGER DEFAULT 0,
+    combo_items TEXT,
     deleted   INTEGER DEFAULT 0
   )`,
 

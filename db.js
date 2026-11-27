@@ -377,7 +377,7 @@ try {
       price REAL NOT NULL,
       cost REAL DEFAULT 0,
       catId INTEGER DEFAULT 1,
-      emoji TEXT DEFAULT '🍽️',
+      emoji TEXT DEFAULT 'restaurant',
       available INTEGER DEFAULT 1,
       image_url TEXT
     );
@@ -393,7 +393,7 @@ try {
       category TEXT DEFAULT 'General',
       expirationDate TEXT,
       notes TEXT,
-      emoji TEXT DEFAULT '📦',
+      emoji TEXT DEFAULT 'inventory_2',
       showInPOS INTEGER DEFAULT 0
     );
 

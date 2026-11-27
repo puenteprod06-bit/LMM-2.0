@@ -36,11 +36,13 @@ module.exports = function inventoryRoutes(db, { requireSession, requireOwner, no
     if (!validation.valid) return res.status(400).json({ error: validation.errors });
 
     const show = showInPOS ? 1 : 0;
+    // Los productos usan nombres de iconos Material Symbols; nunca emojis.
+    const safeEmoji = /^[a-z0-9_]+$/.test(emoji || '') ? emoji : 'inventory_2';
 
     if (id) {
       db.run(
         `UPDATE inventory SET name=?, stock=?, minStock=?, unit=?, cost=?, salePrice=?, category=?, expirationDate=?, notes=?, emoji=?, showInPOS=? WHERE id=?`,
-        [name, stock || 0, minStock || 0, unit || 'unidad', cost || 0, salePrice || 0, category || 'General', expirationDate, notes, emoji || '📦', show, id],
+        [name, stock || 0, minStock || 0, unit || 'unidad', cost || 0, salePrice || 0, category || 'General', expirationDate, notes, safeEmoji, show, id],
         function (err) {
           if (err) return res.status(500).json({ error: err.message });
           notifyChange('inventory:updated');
@@ -50,7 +52,7 @@ module.exports = function inventoryRoutes(db, { requireSession, requireOwner, no
     } else {
       db.run(
         `INSERT INTO inventory (name, stock, minStock, unit, cost, salePrice, category, expirationDate, notes, emoji, showInPOS) VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
-        [name, stock || 0, minStock || 0, unit || 'unidad', cost || 0, salePrice || 0, category || 'General', expirationDate, notes, emoji || '📦', show],
+        [name, stock || 0, minStock || 0, unit || 'unidad', cost || 0, salePrice || 0, category || 'General', expirationDate, notes, safeEmoji, show],
         function (err) {
           if (err) return res.status(500).json({ error: err.message });
           notifyChange('inventory:updated');

@@ -78,6 +78,8 @@ function menuRouter(db, { requireOwner, notifyChange, Validator }) {
             is_combo, combo_items } = req.body;
     const { name, price, area } = validation.data;
     const cost = parseFloat(req.body.cost) || 0;
+    // Los productos usan nombres de iconos Material Symbols; nunca emojis.
+    const safeEmoji = /^[a-z0-9_]+$/.test(emoji || '') ? emoji : 'restaurant';
     if (!catId) {
       return res.status(400).json({ success: false, message: 'Información de producto incompleta o errónea' });
     }
@@ -90,7 +92,7 @@ function menuRouter(db, { requireOwner, notifyChange, Validator }) {
       if (id) {
         db.run(
           `UPDATE menu_items SET name=?, price=?, cost=?, catId=?, subcatId=?, emoji=?, available=?, area=?, is_combo=?, combo_items=? WHERE id=?`,
-          [name, price, cost || 0, catId || 1, subcatId, emoji, avail, area, isComboVal, comboJSON, id],
+          [name, price, cost || 0, catId || 1, subcatId, safeEmoji, avail, area, isComboVal, comboJSON, id],
           function (err) {
             if (err) { db.run('ROLLBACK'); return res.status(500).json({ error: err.message }); }
             db.run('DELETE FROM menu_ingredients WHERE menu_item_id = ?', [id], (delErr) => {
@@ -102,7 +104,7 @@ function menuRouter(db, { requireOwner, notifyChange, Validator }) {
       } else {
         db.run(
           `INSERT INTO menu_items (name, price, cost, catId, subcatId, emoji, available, area, is_combo, combo_items) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [name, price, cost || 0, catId || 1, subcatId, emoji, avail, area, isComboVal, comboJSON],
+          [name, price, cost || 0, catId || 1, subcatId, safeEmoji, avail, area, isComboVal, comboJSON],
           function (err) {
             if (err) { db.run('ROLLBACK'); return res.status(500).json({ error: err.message }); }
             insertIngredients(this.lastID, ingredients || [], res, 'menu:updated');
