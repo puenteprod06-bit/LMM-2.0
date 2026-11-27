@@ -101,4 +101,33 @@ describe('UI de Venta', () => {
     expect(CSS_SRC).toContain('--name-h:85px');
     expect(CSS_SRC).toContain('--price-h:32px');
   });
+
+  test('imágenes automáticas por variantes del nombre del producto', () => {
+    for (const file of [
+      'hamburguesa-doble.jpg',
+      'hamburguesa-simple.jpg',
+      'Pizza-chica.jpg',
+      'Pizza-grande.jpg',
+    ]) {
+      expect(fs.existsSync(path.join(__dirname, '..', 'public', 'assets', 'productos', file))).toBe(true);
+    }
+    expect(VENTA_SRC).toContain('const POS_PRODUCT_IMAGES');
+    expect(VENTA_SRC).toContain('const POS_PRODUCT_IMAGE_VARIANTS');
+    expect(VENTA_SRC).toContain('function normalizePOSProductImageName');
+    expect(VENTA_SRC).toContain('function posAutoProductImage');
+    expect(VENTA_SRC).toContain('const auto=posAutoProductImage(item.name)');
+    expect(VENTA_SRC.indexOf('if(item.image_url)')).toBeLessThan(VENTA_SRC.indexOf('const auto=posAutoProductImage(item.name)'));
+    for (const variant of [
+      'hamburguesa doble',
+      'hamburguesa simple',
+      'hamburguesa clasica',
+      'pizza grande',
+      'pizza familiar',
+      'pizza chica',
+      'pizza pequeña',
+      'pizza',
+    ]) {
+      expect(VENTA_SRC).toContain(variant);
+    }
+  });
 });

@@ -1,16 +1,48 @@
 // ✅ SISTEMA DE IMÁGENES PARA PRODUCTOS — La Mente Maestra POS
-// Prioridad: personalizada > heredada de subcategoría > heredada de categoría > predeterminada
+// Prioridad: personalizada > variante del nombre > subcategoría > categoría > predeterminada
+const POS_PRODUCT_IMAGES={
+  burgerDoble:"/assets/productos/hamburguesa-doble.jpg",
+  burgerSimple:"/assets/productos/hamburguesa-simple.jpg",
+  pizzaChica:"/assets/productos/Pizza-chica.jpg",
+  pizzaGrande:"/assets/productos/Pizza-grande.jpg"
+};
+const POS_PRODUCT_IMAGE_VARIANTS=[
+  {file:POS_PRODUCT_IMAGES.burgerDoble,names:["hamburguesa doble","hamburguesa doble carne","hamburguesa de doble carne","doble hamburguesa","doble carne","hamburguesa doble cheddar","hamburguesa doble bacon","hamburguesa doble queso","hamburguesa 2 carne","hamburguesa dos carnes","hamburguesa clasica doble"]},
+  {file:POS_PRODUCT_IMAGES.burgerSimple,names:["hamburguesa simple","hamburguesa sencilla","hamburguesa clasica","hamburguesa clasica simple","hamburguesa normal","hamburguesa individual","hamburguesa 1 carne","hamburguesa una carne","hamburguesa comun"]},
+  {file:POS_PRODUCT_IMAGES.pizzaGrande,names:["pizza grande","pizza familiar","pizza grande familiar","pizza 1 kilo","pizza kilo","pizza grande kilo","pizza grande 1 kilo"]},
+  {file:POS_PRODUCT_IMAGES.pizzaChica,names:["pizza chica","pizza pequeña","pizza pequeño","pizza pequena","pizza individual","pizza mini","pizza","pizza chica personal"]}
+];
+function normalizePOSProductImageName(t){return String(t||"").trim().toLocaleLowerCase("es").normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]+/g," ").replace(/\s+/g," ").trim()}
+function posAutoProductImage(name){
+  const n=normalizePOSProductImageName(name);
+  if(!n)return null;
+  let best=null,bestScore=0;
+  for(const entry of POS_PRODUCT_IMAGE_VARIANTS){
+    for(const raw of entry.names){
+      const v=normalizePOSProductImageName(raw);
+      if(!v)continue;
+      const exact=n===v,contained=(" "+n+" ").includes(" "+v+" ");
+      if(!exact&&!contained)continue;
+      const score=(exact?1000:100)+v.length;
+      if(score>bestScore){bestScore=score;best=entry.file}
+    }
+  }
+  return best;
+}
 function getProductImagePriority(product){
   const item=product.type==="menu"?S.menuItems.find(m=>m.id===Number(product.origId)):S.inventory.find(i=>i.id===Number(product.origId));
   if(!item)return null;
   // 1. Imagen personalizada del producto (sobreescribe todo)
   if(item.image_url)return{item_url:item.image_url,is_inherited:false};
-  // 2. Imagen heredada de la subcategoría (si tiene subcatId)
+  // 2. Imagen automática por variantes del nombre
+  const auto=posAutoProductImage(item.name);
+  if(auto)return{item_url:auto,is_inherited:true,auto_name:true};
+  // 3. Imagen heredada de la subcategoría (si tiene subcatId)
   if(item.subcatId){const subcat=S.subcategories.find(s=>String(s.id)===String(item.subcatId));if(subcat&&subcat.image_url)return{item_url:subcat.image_url,is_inherited:true}}
-  // 3. Imagen heredada de la categoría (siempre está disponible)
+  // 4. Imagen heredada de la categoría (siempre está disponible)
   const cat=S.categories.find(c=>String(c.id)===String(item.catId));
   if(cat&&cat.image_url)return{item_url:cat.image_url,is_inherited:true};
-  // 4. Imagen predeterminada
+  // 5. Imagen predeterminada
   return{item_url:"/assets/default-product.png",is_inherited:false}
 }
 
